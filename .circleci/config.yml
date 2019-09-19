@@ -1,0 +1,78 @@
+version: 2.1
+
+orbs:
+  slack: circleci/slack@3.3.0
+
+commands:
+  slack-notify:
+    description: Notify for master failures on Slack
+    steps:
+      - slack/notify-on-failure:
+          only_for_branches: master
+
+jobs:
+  test:
+    working_directory: ~/workdir
+    docker:
+      - image: circleci/python:3.7.1
+    steps:
+      - checkout
+
+      - run:
+          name: BASH_ENV PATH
+          command: echo "export PATH=$PATH:/home/circleci/.local/bin" >> $BASH_ENV
+
+      - restore_cache:
+          keys:
+            - v1-local-deps-{{ checksum "Makefile" }}
+            - v1-local-deps
+
+      - run:
+          name: Install system requirements
+          command: make bootstrap-user
+
+      - save_cache:
+          key: v1-local-deps-{{ checksum "Makefile" }}
+          paths:
+            - /home/circleci/.local
+
+      - restore_cache:
+          keys:
+            - v1-deps-{{ checksum "poetry.lock" }}
+            - v1-deps
+
+      - run:
+          name: Configure poetry
+          command: |
+            poetry config http-basic.eai-core $PYPI_EAI_CORE_ACCESS_KEY $PYPI_EAI_CORE_SECRET_KEY
+
+      - run:
+          name: Install deps
+          command: poetry install
+
+      - save_cache:
+          key: v1-deps-{{ checksum "poetry.lock" }}
+          paths:
+              - /home/circleci/.cache/pypoetry/virtualenvs
+
+      - run:
+          name: Lint
+          command: |
+            make lint
+
+      - run:
+          name: Testing
+          command: |
+            make test
+
+      - run:
+          name: Coveralls
+          command: poetry run coveralls
+
+      - slack-notify
+
+workflows:
+  version: 2
+  test_build_and_deploy:
+    jobs:
+      - test
