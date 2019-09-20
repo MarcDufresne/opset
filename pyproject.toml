@@ -1,7 +1,13 @@
 [tool.poetry]
 name = "opset"
-version = "1.0.0"
+version = "1.0.1"
 description = ""
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/ElementAI/opset"
+repository = "https://github.com/ElementAI/opset"
+documentation = "https://github.com/ElementAI/opset"
+keywords = ["config", "management", "configuration", "logging", "setup"]
 authors = ["Alexandre Jutras <alexandre.jutras@elementai.com>", "Emilio Assuncao <emilio.assuncao@elementai.com>", "Guy Dumais <guy@elementai.com>", "Marc-André Dufresne <marc-andre.dufresne@elementai.com>"]
 packages = [
     {include = "opset"}
