@@ -55,7 +55,7 @@ This library is available on PyPI under the name Opset. You can install with pip
 | section	| A section within a configuration file, a section tend to group different settings together under a logical block. For example a section named redis would encompass all settings related specifically to redis. Section name should not contain underscore. |
 | setting	| A key within a section in a configuration file. A value is associated with a key and querying the config for a setting within a section will return the value associated with it. |
 
-![Lexicon](doc/lexicon.png)
+![Lexicon](https://github.com/ElementAI/opset/raw/master/doc/lexicon.png)
 
 ## Architecture Overview
 
@@ -80,7 +80,7 @@ environment variable would need to be named like this:
 
 > MY_SMALL_PROJECT_APP_PORT
 
-![Order](doc/setup_config_overwrite_order.png)
+![Order](https://github.com/ElementAI/opset/raw/master/doc/setup_config_overwrite_order.png)
 
 ### Loading the config for unit tests
 
@@ -91,7 +91,7 @@ values, the values from `default.yml` are overwritten by `unit_test.yml`. Then t
 apply and if you need some config values to be specific to your unit tests you have the option to pass config values
 when loading the unit tests that will overwrite all other sources.
 
-![Order](doc/setup_config_unit_test_overwrite_order.png)
+![Order](https://github.com/ElementAI/opset/raw/master/doc/setup_config_unit_test_overwrite_order.png)
 
 ### Safeguards
 
@@ -166,16 +166,10 @@ The function setup_config takes the following arguments:
 
 | Parameter | Description | Default value | Example
 | --- | --- | --- | --- |
-| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used
-for finding the prefix to the environment variables. The name of the app will be uppercased and dashes
-will be replaced by underscores. | | `myproject-example` |
-| `config_path` | A python path to where the configuration files are. Relative to the application.
-Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks
-from the root of the repo. | | `tasks.config` |
-| `critical_settings` | A boolean to specify how null settings in `default.yml` should be handled. If set to `True`, the function
-will raise an exception when a key in `default.yml` is not defined in `local.yml` or in an environment variable. | `True` | `True` |
-| `setup_logging` | Whether the logging config should be loaded immediately after the config has been loaded.
-Default to `True`. | `True` | `True` |
+| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
+| `config_path` | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo. | | `tasks.config` |
+| `critical_settings` | A boolean to specify how null settings in `default.yml` should be handled. If set to `True`, the function will raise an exception when a key in `default.yml` is not defined in `local.yml` or in an environment variable. | `True` | `True` |
+| `setup_logging` | Whether the logging config should be loaded immediately after the config has been loaded. Default to `True`. | `True` | `True` |
 
 ### Making the difference between null and empty
 
@@ -392,14 +386,9 @@ overwrites.
 
 | Parameter | Description | Default value | Example
 | --- | --- | --- | --- |
-| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used
-for finding the prefix to the environment variables. The name of the app will be uppercased and dashes
-will be replaced by underscores. | | `myproject-example` |
-| `config_path` | A python path to where the configuration files are. Relative to the application.
-Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks
-from the root of the repo. | | `tasks.config` |
-| `config_values` | A dictionary mimicking the structure of the config files, to be applied as an overwrite on top of 
-default + unit_test config (if available) and env variables. | | `{"app": {"debug": False}}` |
+| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
+| `config_path` | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo. | | `tasks.config` |
+| `config_values` | A dictionary mimicking the structure of the config files, to be applied as an overwrite on top of default + unit_test config (if available) and env variables. | | `{"app": {"debug": False}}` |
 
 #### Usage example of setup_unit_test_config
 
