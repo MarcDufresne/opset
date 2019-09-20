@@ -1,4 +1,7 @@
 # Opset
+
+[![Coverage Status](https://coveralls.io/repos/github/ElementAI/opset/badge.svg)](https://coveralls.io/github/ElementAI/opset)
+
 A library for simplifying the configuration of Python applications at all stages of deployment.
 
 Opset is a config manager that let you manage your configuration via yaml file or environment variables.

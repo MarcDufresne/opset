@@ -1,15 +1,5 @@
 version: 2.1
 
-orbs:
-  slack: circleci/slack@3.3.0
-
-commands:
-  slack-notify:
-    description: Notify for master failures on Slack
-    steps:
-      - slack/notify-on-failure:
-          only_for_branches: master
-
 jobs:
   test:
     working_directory: ~/workdir
@@ -42,11 +32,6 @@ jobs:
             - v1-deps
 
       - run:
-          name: Configure poetry
-          command: |
-            poetry config http-basic.eai-core $PYPI_EAI_CORE_ACCESS_KEY $PYPI_EAI_CORE_SECRET_KEY
-
-      - run:
           name: Install deps
           command: poetry install
 
@@ -68,8 +53,6 @@ jobs:
       - run:
           name: Coveralls
           command: poetry run coveralls
-
-      - slack-notify
 
 workflows:
   version: 2
