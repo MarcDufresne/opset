@@ -436,11 +436,17 @@ def load_logging_config(
         wrapper_class=structlog.stdlib.BoundLogger,
     )
 
-    default_level_styles = structlog.dev.ConsoleRenderer.get_default_level_styles()
-    default_level_styles['debug'] = '[34m'  # blue
+    use_colors = getattr(config.logging, "colors", False)
+
+    default_level_styles = structlog.dev.ConsoleRenderer.get_default_level_styles(colors=use_colors)
+
+    if use_colors:
+        default_level_styles['debug'] = '[34m'  # blue
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(level_styles=default_level_styles),
+        processor=structlog.dev.ConsoleRenderer(
+            level_styles=default_level_styles, colors=use_colors
+        ),
         foreign_pre_chain=shared_processors,
     )
 

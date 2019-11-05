@@ -317,6 +317,7 @@ logging:
   date_format: "iso"  # strftime-valid date format, e.g.: "%Y-%M-%d", or "iso" to use the standard ISO format
   use_utc: True  # Use UTC timezone if true, or local otherwise
   min_level: DEBUG  # Minimum level to display log for
+  colors: False  # Use colors for log display, defaults to False
   disable_processors: False  # Disables log processors (additional info at the end of the log record)
   logger_overrides:  # overwrite min log level of third party loggers
     googleapiclient: ERROR
