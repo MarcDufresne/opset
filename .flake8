@@ -1,4 +1,4 @@
 [flake8]
 max-line-length = 120
-application_import_names = opset, tests
-import-order-style = pycharm
+ignore = D1,D401,D413,W503,E203
+docstring-convention = google

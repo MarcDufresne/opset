@@ -1,7 +1,7 @@
 default:
 	@echo "View Makefile for usage"
 
-sys_deps := poetry==0.12.9 pre-commit
+sys_deps := poetry==1.0.2 pre-commit
 
 bootstrap: ## Install system dependencies for this project (macOS or pyenv)
 	pip install -U $(sys_deps)
@@ -11,7 +11,7 @@ bootstrap-user: ## Install system dependencies for this project in user dir (Lin
 
 install: ## Install project dependencies
 	pre-commit install
-	poetry config settings.virtualenvs.in-project true
+	poetry config virtualenvs.in-project true
 	poetry install
 
 lint: ## Lint code with flake8
@@ -19,3 +19,7 @@ lint: ## Lint code with flake8
 
 test: ## Run pytest test suite
 	poetry run pytest --cov=opset tests
+
+format:  ## Format the code using black and isort
+	poetry run black opset tests
+	poetry run isort -rc -y opset tests

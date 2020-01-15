@@ -16,7 +16,7 @@ def test_mock_config():
 
     # Setup config
     with mock_config_file(mock_default_config):
-        setup_config('fake-tool', 'project.config', critical_settings=False, setup_logging=True, reload_config=True)
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
 
     # Verifying that the original value is in config.app.api_key
     assert config.app.api_key == mock_default_config["app"]["api_key"]

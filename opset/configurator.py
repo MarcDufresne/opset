@@ -17,23 +17,23 @@ import structlog
 import yaml
 from munch import Munch, munchify
 
-
 logger = logging.getLogger(__name__)
 
 
 class CriticalSettingException(Exception):
-    """
-    This exception is thrown when a critical settings was found in the default.yml config but
+    """Thrown when a critical setting is not set.
+
+    Happens when a critical settings was found in the default.yml config but
     had no default and was not overwritten by the local.yml config or an environment variable.
     """
 
 
 class Config:
-    """
-    An object used to hold the configuration of an application. This object guarantees dynamic access to the config
-    values, this ensure that the config can be imported before initialisation and have the values for the config
-    receiving an update when the config is initialised. This class is to be initialised with the function setup_config
-    from this module.
+    """An object used to hold the configuration of an application.
+
+    This object guarantees dynamic access to the config values, this ensure that the config can be imported before
+    initialisation and have the values for the config receiving an update when the config is initialised.
+    This class is to be initialised with the function setup_config from this module.
     """
 
     def __init__(self):
@@ -70,12 +70,11 @@ class Config:
 
     @property
     def __formatted_name(self) -> Optional[str]:
-        """
-        Convert the name of the application to be used as a prefix for fetching environment variables.
+        """Convert the name of the application to be used as a prefix for fetching environment variables.
 
         Returns: A representation of the application name fit for fetching environment variables.
         """
-        return self.app_name.upper().replace('-', '_') if self.app_name else None
+        return self.app_name.upper().replace("-", "_") if self.app_name else None
 
     @staticmethod
     def _convert_type(value: str) -> Union[str, bool, int, float, Dict, List]:
@@ -106,8 +105,9 @@ class Config:
             return self._convert_type(os.environ[env_key])
         return fallback(section, setting)
 
-    def _read_from_dict(self, _config: Dict[str, Dict[str, str]], section: str, setting: str,
-                        fallback: Callable[[str, str], str]) -> str:
+    def _read_from_dict(
+        self, _config: Dict[str, Dict[str, str]], section: str, setting: str, fallback: Callable[[str, str], str]
+    ) -> str:
         if section in _config:
             if setting in _config[section]:
                 if _config[section][setting] is not None:
@@ -121,7 +121,7 @@ class Config:
             try:
                 split_path = self.config_path.rsplit(".", maxsplit=1)
                 tentative_path = pkg_resources.resource_filename(split_path[0], f"{split_path[1]}/{config_name}")
-            except (IndexError, Exception):
+            except Exception:
                 pass
 
         return tentative_path
@@ -129,8 +129,8 @@ class Config:
     def _read_yaml_config(self, config_name: str, raise_not_found: bool = True) -> Dict[str, Dict[str, str]]:
         config_path = self._get_config_file_path(config_name)
         try:
-            with open(config_path, 'r') as config_file:
-                if hasattr(yaml, 'FullLoader'):
+            with open(config_path, "r") as config_file:
+                if hasattr(yaml, "FullLoader"):
                     # pyyaml 5.1+
                     return yaml.load(config_file, Loader=yaml.FullLoader) or {}
                 # pyyaml 3.13
@@ -145,18 +145,25 @@ class Config:
         raise CriticalSettingException()
 
     def _build_critical_setting_exception(self, missing_settings: List[Dict[str, str]]) -> CriticalSettingException:
-        message = ''
+        message = ""
         for missing in missing_settings:
             message += f"Missing config for section '{missing['section']}' and setting '{missing['setting']}'. "
-        message += f"Please define missing values in " \
-            f"[{self._get_config_file_path('local.yml')}] or as environment values as " \
+        message += (
+            f"Please define missing values in "
+            f"[{self._get_config_file_path('local.yml')}] or as environment values as "
             f"'{self.__formatted_name}_<SECTION>_<SETTING>'."
+        )
         return CriticalSettingException(message)
 
-    def setup_config(self, app_name: str, config_path: str, critical_settings: bool = True,
-                     setup_logging: bool = False, reload_config: bool = False):
-        """
-        Read the config file and load them in the config object.
+    def setup_config(
+        self,
+        app_name: str,
+        config_path: str,
+        critical_settings: bool = True,
+        setup_logging: bool = False,
+        reload_config: bool = False,
+    ):
+        """Read the config file and load them in the config object.
 
         Order of overwrites:
             default.yml -> local.yml -> environment variables
@@ -198,26 +205,32 @@ class Config:
         local_config = self._read_yaml_config("local.yml", raise_not_found=False)
 
         # warn if there are environment variables that are not declared in default.yml or if they are malformed
-        for key, value in os.environ.items():
-            if key.startswith(f'{self.__formatted_name}_'):
+        for key in os.environ.keys():
+            if key.startswith(f"{self.__formatted_name}_"):
                 try:
-                    section, setting = key[len(self.__formatted_name) + 1:].lower().split('_', maxsplit=1)
+                    section, setting = key[len(self.__formatted_name) + 1 :].lower().split("_", maxsplit=1)
                 except ValueError:
-                    warnings.warn(f"Malformed env variable [{key}], skipping. Make sure the env var name is "
-                                  f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}")
+                    warnings.warn(
+                        f"Malformed env variable [{key}], skipping. Make sure the env var name is "
+                        f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}"
+                    )
                     continue
 
                 if setting not in declared_settings.get(section, {}):
-                    warnings.warn(f"Environment variable [{key}] does not match to any known setting "
-                                  f"in the config for section [{section}] and setting [{setting}]. Ignoring setting.")
+                    warnings.warn(
+                        f"Environment variable [{key}] does not match to any known setting "
+                        f"in the config for section [{section}] and setting [{setting}]. Ignoring setting."
+                    )
 
         # warn if there is a setting in local.yml not declared in default.yml
         for section_name, section in local_config.items():
             for setting in section:
                 if setting not in declared_settings.get(section_name, {}):
-                    warnings.warn(f"Setting [{setting}] from section [{section_name}] in the config "
-                                  f"file [{self._get_config_file_path('local.yml')}] "
-                                  f"is not in the default config. Ignoring setting.")
+                    warnings.warn(
+                        f"Setting [{setting}] from section [{section_name}] in the config "
+                        f"file [{self._get_config_file_path('local.yml')}] "
+                        f"is not in the default config. Ignoring setting."
+                    )
 
         # handling of critical setting flag
         not_found_behaviour = self._raise_on_critical_setting if critical_settings else lambda *args: None
@@ -225,15 +238,19 @@ class Config:
         # set the config settings
         missing_config_stack = []
         for section_name, section in declared_settings.items():
-            for setting, value in section.items():
+            for setting in section.keys():
                 try:
-                    self._config[section_name][setting] = \
-                        self._read_from_env(section_name, setting,
-                                            fallback=partial(self._read_from_dict, local_config,
-                                                             fallback=partial(self._read_from_dict, default_config,
-                                                                              fallback=not_found_behaviour)))
+                    self._config[section_name][setting] = self._read_from_env(
+                        section_name,
+                        setting,
+                        fallback=partial(
+                            self._read_from_dict,
+                            local_config,
+                            fallback=partial(self._read_from_dict, default_config, fallback=not_found_behaviour),
+                        ),
+                    )
                 except CriticalSettingException:
-                    missing_config_stack.append({'section': section_name, 'setting': setting})
+                    missing_config_stack.append({"section": section_name, "setting": setting})
         if missing_config_stack:
             raise self._build_critical_setting_exception(missing_config_stack)
 
@@ -244,10 +261,10 @@ class Config:
             load_logging_config()
 
     def setup_unit_test_config(self, app_name: str, config_path: str, config_values: Dict[str, Dict[str, Any]] = None):
-        """
-        Prepare the config object specifically to be used for unit tests. Load default.yml and either apply the content
-        of unit_test.yaml if it is available and then the environment variables. The content of the param
-        config_values will be used as a final overwrite.
+        """Prepare the config object specifically to be used for unit tests.
+
+        Load default.yml and either apply the content of unit_test.yaml if it is available and then the
+        environment variables. The content of the param config_values will be used as a final overwrite.
 
         Order of overwrites with unit_test.yml:
 
@@ -281,31 +298,40 @@ class Config:
 
         if test_config:  # Test config available, assuming local dev. default -> unit_test -> env vars -> config_values
             for section_name, section in declared_settings.items():
-                for setting, value in section.items():
-                    self._config[section_name][setting] = \
-                        self._read_from_dict(config_values, section_name, setting,
-                                             fallback=partial(self._read_from_env,
-                                                              fallback=partial(self._read_from_dict, test_config,
-                                                                               fallback=partial(
-                                                                                   self._read_from_dict,
-                                                                                   default_config,
-                                                                                   fallback=lambda *args: None))))
+                for setting in section.keys():
+                    self._config[section_name][setting] = self._read_from_dict(
+                        config_values,
+                        section_name,
+                        setting,
+                        fallback=partial(
+                            self._read_from_env,
+                            fallback=partial(
+                                self._read_from_dict,
+                                test_config,
+                                fallback=partial(self._read_from_dict, default_config, fallback=lambda *args: None),
+                            ),
+                        ),
+                    )
         else:  # Test config unavailable or empty, assuming CI/CD. default -> env vars -> config_values
             for section_name, section in declared_settings.items():
-                for setting, value in section.items():
-                    self._config[section_name][setting] = \
-                        self._read_from_dict(config_values, section_name, setting,
-                                             fallback=partial(self._read_from_env,
-                                                              fallback=partial(self._read_from_dict, default_config,
-                                                                               fallback=lambda *args: None)))
+                for setting in section.keys():
+                    self._config[section_name][setting] = self._read_from_dict(
+                        config_values,
+                        section_name,
+                        setting,
+                        fallback=partial(
+                            self._read_from_env,
+                            fallback=partial(self._read_from_dict, default_config, fallback=lambda *args: None),
+                        ),
+                    )
 
         # Cast config to munch so it behaves like an object instead of a dict
         self._config = munchify(self._config)
 
-    def overwrite_from_dict(self, config_overwrite: Dict[str, Dict[str, Any]],
-                            base_config: Dict[str, Dict[str, Any]] = None):
-        """
-        Apply a dictionary structure mimicking the config files to the config, overwriting matching settings.
+    def overwrite_from_dict(
+        self, config_overwrite: Dict[str, Dict[str, Any]], base_config: Dict[str, Dict[str, Any]] = None
+    ):
+        """Apply a dictionary structure mimicking the config files to the config, overwriting matching settings.
 
         Args:
             config_overwrite: A dictionary structure mimicking the config files.
@@ -314,20 +340,26 @@ class Config:
         config_overwrite = config_overwrite or self._config
 
         for section_name, section in config_overwrite.items():
-            for setting, value in section.items():
-                self._config[section_name][setting] = \
-                    self._read_from_dict(config_overwrite, section_name, setting,
-                                         fallback=partial(self._read_from_dict, base_config,
-                                                          fallback=lambda *args: None))
+            for setting in section.keys():
+                self._config[section_name][setting] = self._read_from_dict(
+                    config_overwrite,
+                    section_name,
+                    setting,
+                    fallback=partial(self._read_from_dict, base_config, fallback=lambda *args: None),
+                )
 
 
 config = Config()
 
 
-def setup_config(app_name: str, config_path: str, critical_settings: bool = True,
-                 setup_logging: bool = False, reload_config: bool = False):
-    """
-    Initialize the config and wraps the setup functionality of the singleton object.
+def setup_config(
+    app_name: str,
+    config_path: str,
+    critical_settings: bool = True,
+    setup_logging: bool = False,
+    reload_config: bool = False,
+):
+    """Initialize the config and wraps the setup functionality of the singleton object.
 
     Args:
         app_name: The name of the application, usually the name of the repo. Ex: my-super-app. This will be used
@@ -346,17 +378,23 @@ def setup_config(app_name: str, config_path: str, critical_settings: bool = True
         reload_config: Whether to force reload the config or not, by default if the config has already been loaded
             once it will skip reloading, by setting reload_config to True you ensure that the config will be
             reloaded.
+
     Raises:
         CriticalSettingException when a critical settings is not defined in local.yml and as env variable.
     """
-    config.setup_config(app_name=app_name, config_path=config_path,
-                        critical_settings=critical_settings, setup_logging=setup_logging,
-                        reload_config=reload_config)
+    config.setup_config(
+        app_name=app_name,
+        config_path=config_path,
+        critical_settings=critical_settings,
+        setup_logging=setup_logging,
+        reload_config=reload_config,
+    )
 
 
 def setup_unit_test_config(app_name: str, config_path: str, config_values: Dict[str, Dict[str, Any]] = None):
-    """
-    Prepare the config object specifically to be used for unit tests. Load default.yml and either apply the content
+    """Prepare the config object specifically to be used for unit tests.
+
+    Load default.yml and either apply the content
     of unit_test.yaml if it is available and then the environment variables. The content of the param
     config_values will be used as a final overwrite.
 
@@ -396,8 +434,7 @@ class HostNameProcessor(BaseProcessor):
 def load_logging_config(
     custom_processors: List[BaseProcessor] = None, use_hostname_processor: bool = True
 ) -> logging.Logger:
-    """
-    Load the different logging config parameters as defined in the config of the application.
+    """Load the different logging config parameters as defined in the config of the application.
 
     Args:
         custom_processors: List of custom processors for log records
@@ -422,11 +459,9 @@ def load_logging_config(
         structlog.processors.format_exc_info,
         structlog.processors.TimeStamper(fmt=config.logging.date_format, utc=config.logging.use_utc),
         structlog.processors.UnicodeDecoder(),
-        structlog.stdlib.add_logger_name
+        structlog.stdlib.add_logger_name,
     ] + custom_processors
-    post_processors = [
-        structlog.stdlib.ProcessorFormatter.wrap_for_formatter
-    ]
+    post_processors = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
 
     structlog.reset_defaults()
     structlog.configure(
@@ -441,12 +476,10 @@ def load_logging_config(
     default_level_styles = structlog.dev.ConsoleRenderer.get_default_level_styles(colors=use_colors)
 
     if use_colors:
-        default_level_styles['debug'] = '[34m'  # blue
+        default_level_styles["debug"] = "[34m"  # blue
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(
-            level_styles=default_level_styles, colors=use_colors
-        ),
+        processor=structlog.dev.ConsoleRenderer(level_styles=default_level_styles, colors=use_colors),
         foreign_pre_chain=shared_processors,
     )
 
@@ -459,7 +492,7 @@ def load_logging_config(
     root_logger.setLevel(config.logging.min_level)
 
     # Add override for other loggers, usually loggers from libraries
-    if hasattr(config.logging, 'logger_overrides'):
+    if hasattr(config.logging, "logger_overrides"):
         for logger_name, min_level in config.logging.logger_overrides.items():
             logging.getLogger(logger_name).setLevel(min_level)
 
