@@ -18,7 +18,7 @@ python = "^3.6"
 munch = "^2.3"
 pytz = ">=2018.9"
 pyyaml = ">=3.13,<6"
-structlog = "^19.1"
+structlog = ">=19.1,<21"
 colorama = "^0.4.1"  # for structlog colors
 
 [tool.poetry.dev-dependencies]
