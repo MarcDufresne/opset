@@ -493,6 +493,7 @@ def load_logging_config(
     root_logger = logging.getLogger()
     root_logger.handlers = []
     root_logger.addHandler(stream_handler)
+    custom_handlers = custom_handlers or []
     for handler in custom_handlers:
         root_logger.addHandler(handler)
 
