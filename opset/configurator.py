@@ -487,14 +487,15 @@ def load_logging_config(
         foreign_pre_chain=shared_processors,
     )
 
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    stream_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
     root_logger.handlers = []
-    root_logger.addHandler(handler)
-    for h in custom_handlers:
-        root_logger.addHandler(h)
+    root_logger.addHandler(stream_handler)
+    for handler in custom_handlers:
+        root_logger.addHandler(handler)
+
     root_logger.setLevel(config.logging.min_level)
 
     # Add override for other loggers, usually loggers from libraries
