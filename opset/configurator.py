@@ -4,6 +4,7 @@
 
 import json
 import logging
+from logging import Handler
 import os
 import socket
 import sys
@@ -432,12 +433,15 @@ class HostNameProcessor(BaseProcessor):
 
 
 def load_logging_config(
-    custom_processors: List[BaseProcessor] = None, use_hostname_processor: bool = True
+    custom_processors: List[BaseProcessor] = None,
+    custom_handlers: List[Handler] = None,
+    use_hostname_processor: bool = True
 ) -> logging.Logger:
     """Load the different logging config parameters as defined in the config of the application.
 
     Args:
         custom_processors: List of custom processors for log records
+        custom_handlers: List of custom handlers to log records
         use_hostname_processor: Use the built-in HostNameProcessor for log records
 
     Returns:
@@ -489,6 +493,8 @@ def load_logging_config(
     root_logger = logging.getLogger()
     root_logger.handlers = []
     root_logger.addHandler(handler)
+    for h in custom_handlers:
+        root_logger.addHandler(h)
     root_logger.setLevel(config.logging.min_level)
 
     # Add override for other loggers, usually loggers from libraries
