@@ -4,13 +4,13 @@
 
 import json
 import logging
-from logging import Handler
 import os
 import socket
 import sys
 import warnings
 from collections import defaultdict
 from functools import partial
+from logging import Handler
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import pkg_resources
@@ -435,7 +435,7 @@ class HostNameProcessor(BaseProcessor):
 def load_logging_config(
     custom_processors: List[BaseProcessor] = None,
     custom_handlers: List[Handler] = None,
-    use_hostname_processor: bool = True
+    use_hostname_processor: bool = True,
 ) -> logging.Logger:
     """Load the different logging config parameters as defined in the config of the application.
 
