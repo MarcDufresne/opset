@@ -367,6 +367,46 @@ In local development processors can add some unnecessary noise to the log output
 By default, Opset enables the built-in `HostNameProcessor`, which adds the machine hostname to log records.
 It can be disabled by passing `use_hostname_processor=False` in the `load_logging_config` call.
 
+### Log Handlers
+
+Since we are using python's `logging` library, you can use custom log handlers to customize how and where the
+information is logged when using the logger.
+
+To use this simply define any log handlers you want by inheriting from the `Handler` class of `logging` and overwriting
+`emit` method, and pass an instance to the `load_logging_config` call:
+
+```python
+import logging
+
+from flask import Flask
+from opset import load_logging_config, setup_config
+from logging import Handler
+import json
+
+class LocalFileHandler(Handler):
+    def __init__(self):
+        Handler.__init__(self)
+
+    def emit(self, record):
+        with open(f"log.json", "w") as fp:
+            json.dump(record.msg, fp)
+
+
+setup_config("my_app", "my_app.config", setup_logging=False)  # Defer the logging setup
+load_logging_config(custom_handlers=[LocalFileHandler()])  # Pass your custom processors
+
+app = Flask(__name__)
+
+@app.route("/")
+def root():
+    logging.info("Log me in a local file!")
+    return "OK"
+```
+
+The handler receives the record object, containing all the log information that was processed by the
+processors. The handler can chose what to do with that information, should it be to log it in a local file,
+send it to a blob storage, send it to an external tool (ex: Sentry)
+
 ## Support for unit tests
 
 Opset support unit testing to make sure you can handle the special cases that may come up in your
