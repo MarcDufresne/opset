@@ -10,6 +10,7 @@ import sys
 import warnings
 from collections import defaultdict
 from functools import partial
+from logging import Handler
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import pkg_resources
@@ -432,12 +433,15 @@ class HostNameProcessor(BaseProcessor):
 
 
 def load_logging_config(
-    custom_processors: List[BaseProcessor] = None, use_hostname_processor: bool = True
+    custom_processors: List[BaseProcessor] = None,
+    custom_handlers: List[Handler] = None,
+    use_hostname_processor: bool = True,
 ) -> logging.Logger:
     """Load the different logging config parameters as defined in the config of the application.
 
     Args:
         custom_processors: List of custom processors for log records
+        custom_handlers: List of custom handlers to log records
         use_hostname_processor: Use the built-in HostNameProcessor for log records
 
     Returns:
@@ -483,12 +487,16 @@ def load_logging_config(
         foreign_pre_chain=shared_processors,
     )
 
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    stream_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
     root_logger.handlers = []
-    root_logger.addHandler(handler)
+    root_logger.addHandler(stream_handler)
+    custom_handlers = custom_handlers or []
+    for handler in custom_handlers:
+        root_logger.addHandler(handler)
+
     root_logger.setLevel(config.logging.min_level)
 
     # Add override for other loggers, usually loggers from libraries

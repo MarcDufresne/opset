@@ -174,6 +174,22 @@ def test_load_logging_config_with_custom_processor():
         assert custom_processor_1 in stream_handler.formatter.foreign_pre_chain
 
 
+def test_load_logging_config_with_custom_handler():
+    class CustomHandler(logging.Handler):
+        def __init__(self):
+            logging.Handler.__init__(self)
+
+        def emit(self, record):
+            print(record)
+
+    with mock_config_file(mock_default_config):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+        logger = load_logging_config(custom_handlers=[CustomHandler()])
+        assert len(logger.handlers) == 2
+        assert type(logger.handlers[0]) == logging.StreamHandler
+        assert type(logger.handlers[1]) == CustomHandler
+
+
 @clear_env_vars
 def test_setup_config_unit_test_with_test_config():
     os.environ["FAKE_TOOL_APP_SECRET_KEY"] = "Quatre-Roue-Force"
