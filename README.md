@@ -373,7 +373,7 @@ Since we are using python's `logging` library, you can use custom log handlers t
 information is logged when using the logger.
 
 To use this simply define any log handlers you want by inheriting from the `Handler` class of `logging` and overwriting
-`emit` method, and pass an instance to the `load_logging_config` call:
+the `emit` method, and pass an instance to the `load_logging_config` call:
 
 ```python
 import logging
