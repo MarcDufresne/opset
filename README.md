@@ -388,12 +388,15 @@ class LocalFileHandler(Handler):
         Handler.__init__(self)
 
     def emit(self, record):
-        with open(f"log.json", "w") as fp:
+        """
+        Will log the record in the root log.json file
+        """
+        with open("log.json", "w") as fp:
             json.dump(record.msg, fp)
 
 
 setup_config("my_app", "my_app.config", setup_logging=False)  # Defer the logging setup
-load_logging_config(custom_handlers=[LocalFileHandler()])  # Pass your custom processors
+load_logging_config(custom_handlers=[LocalFileHandler()])  # Pass your custom handlers
 
 app = Flask(__name__)
 
