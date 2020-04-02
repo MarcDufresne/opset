@@ -487,6 +487,13 @@ def load_logging_config(
         foreign_pre_chain=shared_processors,
     )
 
+    no_color_formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.dev.ConsoleRenderer(
+            level_styles=structlog.dev.ConsoleRenderer.get_default_level_styles(colors=False), colors=False
+        ),
+        foreign_pre_chain=shared_processors,
+    )
+
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(formatter)
 
@@ -495,6 +502,7 @@ def load_logging_config(
     root_logger.addHandler(stream_handler)
     custom_handlers = custom_handlers or []
     for handler in custom_handlers:
+        handler.setFormatter(no_color_formatter)
         root_logger.addHandler(handler)
 
     root_logger.setLevel(config.logging.min_level)
