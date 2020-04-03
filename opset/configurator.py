@@ -495,6 +495,7 @@ def load_logging_config(
     root_logger.addHandler(stream_handler)
     custom_handlers = custom_handlers or []
     for handler in custom_handlers:
+        handler.setFormatter(formatter)
         root_logger.addHandler(handler)
 
     root_logger.setLevel(config.logging.min_level)
