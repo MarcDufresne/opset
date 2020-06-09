@@ -205,39 +205,7 @@ class Config:
         declared_settings = default_config = self._read_yaml_config("default.yml", raise_not_found=True)
         local_config = self._read_yaml_config("local.yml", raise_not_found=False)
 
-        # warn if there are environment variables that are not declared in default.yml or if they are malformed
-        for key in os.environ.keys():
-            if key.startswith(f"{self.__formatted_name}_"):
-                parts = key[len(self.__formatted_name) + 1 :].lower().split("_")
-                if len(parts) == 1:
-                    warnings.warn(
-                        f"Malformed env variable [{key}], skipping. Make sure the env var name is "
-                        f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}"
-                    )
-                    continue
-
-                section = ""
-                setting = ""
-                for i in range(1, len(parts)):
-                    section = "_".join(parts[0:i])
-                    setting = "_".join(parts[i:len(parts)])
-                    if setting in declared_settings.get(section, {}):
-                        break
-                else:
-                    warnings.warn(
-                        f"Environment variable [{key}] does not match to any known section and setting. "
-                        "Ignoring setting."
-                    )
-
-        # warn if there is a setting in local.yml not declared in default.yml
-        for section_name, section in local_config.items():
-            for setting in section:
-                if setting not in declared_settings.get(section_name, {}):
-                    warnings.warn(
-                        f"Setting [{setting}] from section [{section_name}] in the config "
-                        f"file [{self._get_config_file_path('local.yml')}] "
-                        f"is not in the default config. Ignoring setting."
-                    )
+        self._emit_warnings(declared_settings, local_config)
 
         # handling of critical setting flag
         not_found_behaviour = self._raise_on_critical_setting if critical_settings else lambda *args: None
@@ -354,6 +322,43 @@ class Config:
                     setting,
                     fallback=partial(self._read_from_dict, base_config, fallback=lambda *args: None),
                 )
+
+    def _emit_warnings(
+        self, declared_settings: Dict[str, Dict[str, Any]], local_config: Dict[str, Dict[str, Any]]
+    ) -> None:
+        # warn if there are environment variables that are not declared in default.yml or if they are malformed
+        for key in os.environ.keys():
+            if key.startswith(f"{self.__formatted_name}_"):
+                parts = key[len(self.__formatted_name) + 1 :].lower().split("_")
+                if len(parts) == 1:
+                    warnings.warn(
+                        f"Malformed env variable [{key}], skipping. Make sure the env var name is "
+                        f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}"
+                    )
+                    continue
+
+                section = ""
+                setting = ""
+                for i in range(1, len(parts)):
+                    section = "_".join(parts[0:i])
+                    setting = "_".join(parts[i : len(parts)])
+                    if setting in declared_settings.get(section, {}):
+                        break
+                else:
+                    warnings.warn(
+                        f"Environment variable [{key}] does not match to any known section and setting. "
+                        "Ignoring setting."
+                    )
+
+        # warn if there is a setting in local.yml not declared in default.yml
+        for section_name, section in local_config.items():
+            for setting in section:
+                if setting not in declared_settings.get(section_name, {}):
+                    warnings.warn(
+                        f"Setting [{setting}] from section [{section_name}] in the config "
+                        f"file [{self._get_config_file_path('local.yml')}] "
+                        f"is not in the default config. Ignoring setting."
+                    )
 
 
 config = Config()
