@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opset"
-version = "1.4.1"
+version = "1.5.0"
 description = "A library for simplifying the configuration of Python applications at all stages of deployment."
 license = "Apache-2.0"
 readme = "README.md"
@@ -33,6 +33,7 @@ isort = "^4.3.21"
 flake8-isort = "^2.8.0"
 flake8-bugbear = "^20.1.2"
 flake8-docstrings = "^1.5.0"
+mypy = "^0.780"
 
 [tool.black]
 line-length = 120
