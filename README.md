@@ -52,7 +52,7 @@ This library is available on PyPI under the name Opset. You can install with pip
 | Term | Definition |
 |--- | --- |
 | config |	A configuration file (format: YAML). |
-| section	| A section within a configuration file, a section tend to group different settings together under a logical block. For example a section named redis would encompass all settings related specifically to redis. Section name should not contain underscore. |
+| section	| A section within a configuration file, a section tend to group different settings together under a logical block. For example a section named redis would encompass all settings related specifically to redis. |
 | setting	| A key within a section in a configuration file. A value is associated with a key and querying the config for a setting within a section will return the value associated with it. |
 
 ![Lexicon](https://github.com/ElementAI/opset/raw/master/doc/lexicon.png)
@@ -184,11 +184,6 @@ app:
   # this setting's value is set to an empty string
   log_prefix: 
 ```
-
-### Naming your config sections
-
-Due to certain limitations when loading environment variables, your config sections should not contain underscores to
-avoid issues when loading environment variables.
 
 ### Controlling your entry points
 
