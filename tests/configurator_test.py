@@ -94,8 +94,8 @@ def test_warn_on_extra_key():
             assert any(issubclass(w.category, UserWarning) for w in ws)
             warning_messages = [str(w.message) for w in ws]
             assert (
-                "Environment variable [FAKE_TOOL_APP_SOME_UNKNOWN_KEY] does not match to any known setting in the "
-                "config for section [app] and setting [some_unknown_key]. Ignoring setting." in warning_messages
+                "Environment variable [FAKE_TOOL_APP_SOME_UNKNOWN_KEY] does not match to any known section and "
+                "setting. Ignoring setting." in warning_messages
             )
 
     local_config = copy.deepcopy(mock_default_config)
@@ -252,3 +252,18 @@ def test_convert_type(test, expected):
 @pytest.mark.parametrize("test", ('["test"', "HELLO", "nope", "test2000", '{"test"}'))
 def test_convert_type_fallback(test):
     assert Config._convert_type(test) == test
+
+
+@clear_env_vars
+def test_snake_config_section_env_var_override():
+    os.environ["FAKE_TOOL_SNAKE_CASE_SECTION_VALUE"] = "new value"
+    os.environ["FAKE_TOOL_SNAKE_CASE_SECTION_SPLIT_VALUE"] = "new split value"
+
+    with mock_config_file(mock_default_config), warnings.catch_warnings(record=True) as ws:
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+    assert config.snake_case_section.value == "new value"
+    assert config.snake_case_section.split_value == "new split value"
+
+    for w in ws:
+        assert "FAKE_TOOL_SNAKE_CASE_SECTION_VALUE" not in str(w.message)
+        assert "FAKE_TOOL_SNAKE_CASE_SECTION_SPLIT_VALUE" not in str(w.message)

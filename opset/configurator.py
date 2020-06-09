@@ -208,19 +208,25 @@ class Config:
         # warn if there are environment variables that are not declared in default.yml or if they are malformed
         for key in os.environ.keys():
             if key.startswith(f"{self.__formatted_name}_"):
-                try:
-                    section, setting = key[len(self.__formatted_name) + 1 :].lower().split("_", maxsplit=1)
-                except ValueError:
+                parts = key[len(self.__formatted_name) + 1 :].lower().split("_")
+                if len(parts) == 1:
                     warnings.warn(
                         f"Malformed env variable [{key}], skipping. Make sure the env var name is "
                         f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}"
                     )
                     continue
 
-                if setting not in declared_settings.get(section, {}):
+                section = ""
+                setting = ""
+                for i in range(1, len(parts)):
+                    section = "_".join(parts[0:i])
+                    setting = "_".join(parts[i:len(parts)])
+                    if setting in declared_settings.get(section, {}):
+                        break
+                else:
                     warnings.warn(
-                        f"Environment variable [{key}] does not match to any known setting "
-                        f"in the config for section [{section}] and setting [{setting}]. Ignoring setting."
+                        f"Environment variable [{key}] does not match to any known section and setting. "
+                        "Ignoring setting."
                     )
 
         # warn if there is a setting in local.yml not declared in default.yml

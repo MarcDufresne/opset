@@ -41,4 +41,5 @@ mock_default_config = {
         "disable_processors": False,
         "logger_overrides": {"some_3rd_party_lib": "ERROR"},
     },
+    "snake_case_section": {"value": 123, "split_value": 111},
 }
