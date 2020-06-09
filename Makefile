@@ -16,6 +16,7 @@ install: ## Install project dependencies
 
 lint: ## Lint code with flake8
 	poetry run flake8 opset tests
+	poetry run mypy opset
 
 test: ## Run pytest test suite
 	poetry run pytest --cov=opset tests

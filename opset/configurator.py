@@ -11,12 +11,12 @@ import warnings
 from collections import defaultdict
 from functools import partial
 from logging import Handler
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Union, cast
 
 import pkg_resources
 import structlog
 import yaml
-from munch import Munch, munchify
+from munch import munchify
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +37,15 @@ class Config:
     This class is to be initialised with the function setup_config from this module.
     """
 
-    def __init__(self):
-        self.app_name: str = None
-        self.config_path: str = None
-        self.critical_settings: Dict = {}
+    def __init__(self) -> None:
+        self.app_name: Optional[str] = None
+        self.config_path: str = ""
+        self.critical_settings: bool = True
         self.setup_logging: bool = True
-        self._config: Munch = None
+        self._config: Dict[str, Dict[str, Any]] = {}
 
-    def __copy__(self):
-        raw_config_copy = {}
+    def __copy__(self) -> "Config":
+        raw_config_copy: Dict[str, Any] = {}
         for section_name, section in self.items():
             raw_config_copy[section_name] = {}
             for setting, value in section.items():
@@ -60,22 +60,22 @@ class Config:
 
         return config_copy
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         try:
             return getattr(self._config, item)
         except AttributeError:
             raise AttributeError(f"Section [{item}] not found in the config.")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Config of {self.app_name}"
 
     @property
-    def __formatted_name(self) -> Optional[str]:
+    def __formatted_name(self) -> str:
         """Convert the name of the application to be used as a prefix for fetching environment variables.
 
         Returns: A representation of the application name fit for fetching environment variables.
         """
-        return self.app_name.upper().replace("-", "_") if self.app_name else None
+        return self.app_name.upper().replace("-", "_") if self.app_name else ""
 
     @staticmethod
     def _convert_type(value: str) -> Union[str, bool, int, float, Dict, List]:
@@ -86,21 +86,23 @@ class Config:
             return False
 
         try:
-            value = float(value)
-            if value % 1 == 0:
-                return int(value)
-            return value
+            f_value = float(value)
+            if f_value % 1 == 0:
+                return int(f_value)
+            return f_value
         except ValueError:
             pass
 
         try:
-            return json.loads(value)
+            return cast(Union[str, bool, int, float, Dict, List], json.loads(value))
         except json.JSONDecodeError:
             pass
 
         return value
 
-    def _read_from_env(self, section: str, setting: str, fallback: Callable[[str, str], str]) -> str:
+    def _read_from_env(
+        self, section: str, setting: str, fallback: Callable[[str, str], str]
+    ) -> Union[str, bool, int, float, Dict, List]:
         env_key = f"{self.__formatted_name}_{section.upper()}_{setting.upper()}"
         if env_key in os.environ:
             return self._convert_type(os.environ[env_key])
@@ -142,7 +144,7 @@ class Config:
                 raise
             return {}
 
-    def _raise_on_critical_setting(self, *args):
+    def _raise_on_critical_setting(self, *args: Any) -> NoReturn:
         raise CriticalSettingException()
 
     def _build_critical_setting_exception(self, missing_settings: List[Dict[str, str]]) -> CriticalSettingException:
@@ -163,7 +165,7 @@ class Config:
         critical_settings: bool = True,
         setup_logging: bool = False,
         reload_config: bool = False,
-    ):
+    ) -> None:
         """Read the config file and load them in the config object.
 
         Order of overwrites:
@@ -235,7 +237,9 @@ class Config:
         if self.setup_logging:
             load_logging_config()
 
-    def setup_unit_test_config(self, app_name: str, config_path: str, config_values: Dict[str, Dict[str, Any]] = None):
+    def setup_unit_test_config(
+        self, app_name: str, config_path: str, config_values: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> None:
         """Prepare the config object specifically to be used for unit tests.
 
         Load default.yml and either apply the content of unit_test.yaml if it is available and then the
@@ -278,7 +282,7 @@ class Config:
                         config_values,
                         section_name,
                         setting,
-                        fallback=partial(
+                        fallback=partial(  # type: ignore
                             self._read_from_env,
                             fallback=partial(
                                 self._read_from_dict,
@@ -294,7 +298,7 @@ class Config:
                         config_values,
                         section_name,
                         setting,
-                        fallback=partial(
+                        fallback=partial(  # type: ignore
                             self._read_from_env,
                             fallback=partial(self._read_from_dict, default_config, fallback=lambda *args: None),
                         ),
@@ -304,8 +308,8 @@ class Config:
         self._config = munchify(self._config)
 
     def overwrite_from_dict(
-        self, config_overwrite: Dict[str, Dict[str, Any]], base_config: Dict[str, Dict[str, Any]] = None
-    ):
+        self, config_overwrite: Dict[str, Dict[str, Any]], base_config: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> None:
         """Apply a dictionary structure mimicking the config files to the config, overwriting matching settings.
 
         Args:
@@ -337,12 +341,12 @@ class Config:
                     )
                     continue
 
-                section = ""
+                section_name = ""
                 setting = ""
                 for i in range(1, len(parts)):
-                    section = "_".join(parts[0:i])
+                    section_name = "_".join(parts[0:i])
                     setting = "_".join(parts[i : len(parts)])
-                    if setting in declared_settings.get(section, {}):
+                    if setting in declared_settings.get(section_name, {}):
                         break
                 else:
                     warnings.warn(
@@ -370,7 +374,7 @@ def setup_config(
     critical_settings: bool = True,
     setup_logging: bool = False,
     reload_config: bool = False,
-):
+) -> None:
     """Initialize the config and wraps the setup functionality of the singleton object.
 
     Args:
@@ -403,7 +407,9 @@ def setup_config(
     )
 
 
-def setup_unit_test_config(app_name: str, config_path: str, config_values: Dict[str, Dict[str, Any]] = None):
+def setup_unit_test_config(
+    app_name: str, config_path: str, config_values: Optional[Dict[str, Dict[str, Any]]] = None
+) -> None:
     """Prepare the config object specifically to be used for unit tests.
 
     Load default.yml and either apply the content
@@ -444,8 +450,8 @@ class HostNameProcessor(BaseProcessor):
 
 
 def load_logging_config(
-    custom_processors: List[BaseProcessor] = None,
-    custom_handlers: List[Handler] = None,
+    custom_processors: Optional[List[BaseProcessor]] = None,
+    custom_handlers: Optional[List[Handler]] = None,
     use_hostname_processor: bool = True,
 ) -> logging.Logger:
     """Load the different logging config parameters as defined in the config of the application.
