@@ -24,3 +24,6 @@ test: ## Run pytest test suite
 format:  ## Format the code using black and isort
 	poetry run black opset tests
 	poetry run isort -rc -y opset tests
+
+requirements.txt: poetry.lock
+	poetry export -f requirements.txt > requirements.txt

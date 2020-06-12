@@ -6,3 +6,11 @@ repos:
         entry: make lint
         language: system
         types: [python]
+
+        # required to allow github to find security vulnerabilities
+      - id: requirements-txt-updated
+        name: Update requirements.txt if needed
+        entry: make requirements.txt
+        language: system
+        files: 'poetry.lock'
+        pass_filenames: false
