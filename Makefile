@@ -1,3 +1,5 @@
+include makefiles/Makefile.security
+
 default:
 	@echo "View Makefile for usage"
 
