@@ -21,7 +21,7 @@ lint: ## Lint code with flake8
 	poetry run mypy opset
 
 test: ## Run pytest test suite
-	poetry run pytest --cov=opset tests
+	poetry run pytest --cov-report term-missing --cov=opset tests
 
 format:  ## Format the code using black and isort
 	poetry run black opset tests
