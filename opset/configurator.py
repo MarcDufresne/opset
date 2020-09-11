@@ -366,7 +366,7 @@ class Config:
 
         config_values = config_values or {}
 
-        logger.info(f"Initializing config for unit tests")
+        logger.info("Initializing config for unit tests")
 
         default_config = self._read_yaml_config("default.yml", raise_not_found=True)
         test_config = self._read_yaml_config("unit_test.yml", raise_not_found=False)
