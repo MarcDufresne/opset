@@ -15,8 +15,8 @@ from munch import Munch  # noqa
 from opset.configurator import Config, config
 
 
-@contextmanager  # type: ignore
-def mock_config(config_values: Dict[str, Dict[str, Any]]) -> None:
+@contextmanager
+def mock_config(config_values: Dict[str, Dict[str, Any]]) -> Generator:
     """Inject a fake config into the interpreter.
 
     This forces the __getattr__ function of the Config singleton object to

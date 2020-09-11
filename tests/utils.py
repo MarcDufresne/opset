@@ -33,7 +33,7 @@ def clear_env_vars(fn):
 
 
 mock_default_config = {
-    "app": {"api_key": "my_api_key", "secret_key": "my_secret_key", "no_default": None},
+    "app": {"api_key": "my_api_key", "secret_key": "my_secret_key", "no_default": None, "v": None},
     "logging": {
         "date_format": "iso",
         "min_level": "DEBUG",
@@ -42,4 +42,5 @@ mock_default_config = {
         "logger_overrides": {"some_3rd_party_lib": "ERROR"},
     },
     "snake_case_section": {"value": 123, "split_value": 111},
+    "level1": {"level2": {"level3": {"level4": "value"}}},
 }

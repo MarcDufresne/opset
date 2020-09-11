@@ -1,5 +1,7 @@
 # configurator_test.py
-# Alexandre Jutras, 2018-08-20, Emilio Assuncao, 2019-01-17
+# Alexandre Jutras, 2018-08-20
+# Emilio Assuncao, 2019-01-17
+# Marc-Andre Dufresne, 2020-09-10
 # Copyright (c) Element AI Inc. All rights not expressly granted hereunder are reserved.
 
 import copy
@@ -26,30 +28,27 @@ def test_config():
         assert config.app.api_key == mock_default_config["app"]["api_key"]
 
 
+@clear_env_vars
+def test_config_local_override():
+    local_config = {
+        "app": {"values": {"a": 1}},
+        "level1": {"level2": {"level3": {"level4": "new value"}}},
+    }
+    with mock_config_file(mock_default_config, local_config):
+
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+
+        assert str(config) == "Config of fake-tool"
+        assert config.app.api_key == mock_default_config["app"]["api_key"]
+        assert config.level1.level2.level3.level4 == "new value"
+
+
 def test_config_no_reload():
     with mock_config_file(mock_default_config):
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
         assert str(config) == "Config of fake-tool"
         setup_config("fakez-toolz", "project.config", critical_settings=False, setup_logging=False)
         assert str(config) != "Config of fakez-toolz"
-
-
-@clear_env_vars
-def test_env_var_malformed():
-    os.environ["FAKE_TOOL_POMPATUS"] = "Of Love!"
-
-    with warnings.catch_warnings(record=True) as ws:
-        with mock_config_file(mock_default_config):
-            setup_config(
-                "fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True
-            )
-
-            assert any(issubclass(w.category, UserWarning) for w in ws)
-            assert (
-                "Malformed env variable [FAKE_TOOL_POMPATUS], skipping. Make sure the env var "
-                "name is following this format: FAKE_TOOL_{SECTION_NAME}_{SETTING_NAME}"
-                in [str(warn.message) for warn in ws]
-            )
 
 
 @clear_env_vars
@@ -94,8 +93,8 @@ def test_warn_on_extra_key():
             assert any(issubclass(w.category, UserWarning) for w in ws)
             warning_messages = [str(w.message) for w in ws]
             assert (
-                "Environment variable [FAKE_TOOL_APP_SOME_UNKNOWN_KEY] does not match to any known section and "
-                "setting. Ignoring setting." in warning_messages
+                "Environment variable [FAKE_TOOL_APP_SOME_UNKNOWN_KEY] does not match any "
+                "possible setting, ignoring." in warning_messages
             )
 
     local_config = copy.deepcopy(mock_default_config)
@@ -111,7 +110,7 @@ def test_warn_on_extra_key():
                 (
                     warning_message
                     for warning_message in warning_messages
-                    if "Setting [some_unknown_key] from section [app] in the config file [" in warning_message
+                    if "Override [app.some_unknown_key] not found in base config, ignoring." in warning_message
                 )
             )
 
@@ -131,14 +130,18 @@ def test_empty_string_setting():
 
     local_config = copy.deepcopy(mock_default_config)
     local_config["app"]["no_default"] = ""
+    local_config["app"]["v"] = {"a": 1}
     with mock_config_file(mock_default_config, local_config):
         setup_config("fake-tool", "project.config", critical_settings=True, setup_logging=False, reload_config=True)
         assert config.app.no_default == "", "expected the setting to be overwritten by local.yml to ''"
+        assert config.app.v == {"a": 1}, 'expected the setting to be overwritten by local.yml to "{"a": 1}"'
 
     os.environ["FAKE_TOOL_APP_NO_DEFAULT"] = ""
+    os.environ["FAKE_TOOL_APP_V"] = '{"a":1}'
     with mock_config_file(mock_default_config):
         setup_config("fake-tool", "project.config", critical_settings=True, setup_logging=False, reload_config=True)
         assert config.app.no_default == "", "expected the setting to be overwritten by env var to ''"
+        assert config.app.v == {"a": 1}, 'expected the setting to be overwritten by env var to "{"a": 1}"'
 
 
 @clear_env_vars
@@ -267,3 +270,9 @@ def test_snake_config_section_env_var_override():
     for w in ws:
         assert "FAKE_TOOL_SNAKE_CASE_SECTION_VALUE" not in str(w.message)
         assert "FAKE_TOOL_SNAKE_CASE_SECTION_SPLIT_VALUE" not in str(w.message)
+
+
+def test_get_dict_item_from_path():
+    d = {"a": {"b": "1"}}
+    assert Config._get_dict_item_from_path(d, ["a"]) == {"b": "1"}
+    assert Config._get_dict_item_from_path(d, ["a", "b"]) == "1"

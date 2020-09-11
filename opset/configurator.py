@@ -1,17 +1,21 @@
 # configurator.py
-# Alexandre Jutras, 2018-11-19, Emilio Assuncao, 2019-01-17
+# Alexandre Jutras, 2018-11-19
+# Emilio Assuncao, 2019-01-17
+# Marc-Andre Dufresne, 2020-09-10
 # Copyright (c) Element AI Inc. All rights not expressly granted hereunder are reserved.
 
 import json
 import logging
+import operator
 import os
 import socket
 import sys
 import warnings
 from collections import defaultdict
-from functools import partial
+from copy import deepcopy
+from functools import reduce
 from logging import Handler
-from typing import Any, Callable, Dict, List, NoReturn, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import pkg_resources
 import structlog
@@ -100,23 +104,6 @@ class Config:
 
         return value
 
-    def _read_from_env(
-        self, section: str, setting: str, fallback: Callable[[str, str], str]
-    ) -> Union[str, bool, int, float, Dict, List]:
-        env_key = f"{self.__formatted_name}_{section.upper()}_{setting.upper()}"
-        if env_key in os.environ:
-            return self._convert_type(os.environ[env_key])
-        return fallback(section, setting)
-
-    def _read_from_dict(
-        self, _config: Dict[str, Dict[str, str]], section: str, setting: str, fallback: Callable[[str, str], str]
-    ) -> str:
-        if section in _config:
-            if setting in _config[section]:
-                if _config[section][setting] is not None:
-                    return _config[section][setting]
-        return fallback(section, setting)
-
     def _get_config_file_path(self, config_name: str) -> str:
         tentative_path = pkg_resources.resource_filename(self.config_path, config_name)
 
@@ -129,7 +116,7 @@ class Config:
 
         return tentative_path
 
-    def _read_yaml_config(self, config_name: str, raise_not_found: bool = True) -> Dict[str, Dict[str, str]]:
+    def _read_yaml_config(self, config_name: str, raise_not_found: bool = True) -> Dict[str, Dict]:
         config_path = self._get_config_file_path(config_name)
         try:
             with open(config_path, "r") as config_file:
@@ -144,19 +131,148 @@ class Config:
                 raise
             return {}
 
-    def _raise_on_critical_setting(self, *args: Any) -> NoReturn:
-        raise CriticalSettingException()
-
-    def _build_critical_setting_exception(self, missing_settings: List[Dict[str, str]]) -> CriticalSettingException:
-        message = ""
+    def _build_critical_setting_exception(self, missing_settings: List[List[str]]) -> CriticalSettingException:
+        message = "\n"
         for missing in missing_settings:
-            message += f"Missing config for section '{missing['section']}' and setting '{missing['setting']}'. "
+            message += f"- Missing setting [{'.'.join(missing)}].\n"
         message += (
-            f"Please define missing values in "
+            f"\nPlease define missing values in "
             f"[{self._get_config_file_path('local.yml')}] or as environment values as "
             f"'{self.__formatted_name}_<SECTION>_<SETTING>'."
         )
         return CriticalSettingException(message)
+
+    def _merge_configs(
+        self, base_config: Dict, override_config: Dict, current_path: Optional[List[str]] = None
+    ) -> Dict:
+        """Recursively traverse two configs and apply values from the `override_config` onto the `base_config`.
+
+        This method will also warn the user about keys present in the override dict that are
+        not present in the base one, these keys will be ignored.
+
+        Args:
+            base_config: Base config, this object will be modified directly. If you wish to keep
+                         your original object for later it is recommended to pass a deepcopy of it instead.
+            override_config: Override config, keys matching the base config will be applied to it.
+            current_path: List of keys traversed to reach the current position in the dictionaries.
+
+        Returns:
+            The resulting merged dictionary built from the other two.
+        """
+        if current_path is None:
+            current_path = []
+
+        for key, override_value in override_config.items():
+            next_path = current_path + [key]
+
+            if key in base_config:
+                if isinstance(override_value, dict):
+                    if base_config[key] is None:
+                        base_config[key] = {}
+                    base_config[key] = self._merge_configs(base_config[key], override_value, next_path)
+                else:
+                    base_config[key] = override_value
+            elif len(current_path) > 1:
+                # Only allow overriding keys in a section, not at the top level to keep behaviour from 1.x
+                base_config[key] = override_value
+            else:
+                warnings.warn(f"Override [{'.'.join(next_path)}] not found in base config, ignoring.")
+        return base_config
+
+    def _get_possible_env_var_overrides(
+        self, current_config: Dict, current_path: Optional[List[str]] = None, prefix: str = ""
+    ) -> List[Tuple[str, List[str]]]:
+        """From a base config, determine the possible environment variables that can be used to override values.
+
+        Args:
+            current_config: The base config to be used for determining the possible names.
+            current_path: List of strings representing the path to the value in the config.
+            prefix: Prefix to be applied to the environment variables.
+
+        Returns:
+            A list of tuples representing the environment variable name and path in the config
+            of each possible override.
+        """
+        if current_path is None:
+            current_path = []
+
+        keys = []
+        for key, value in current_config.items():
+            if isinstance(value, dict) and len(value):
+                keys.extend(
+                    self._get_possible_env_var_overrides(
+                        current_config[key], current_path=current_path + [key], prefix=prefix
+                    )
+                )
+            else:
+                path_key = current_path + [key]
+                if prefix:
+                    path_key = [prefix] + path_key
+                keys.append(("_".join(path_key).upper(), current_path + [key]))
+
+        return keys
+
+    def _environment_override(
+        self, current_config: Dict, default_config: Dict, critical_settings: bool = False
+    ) -> None:
+        """Override values in the config with environment variables.
+
+        Args:
+            current_config: The config that should be overridden with values from environment variables.
+            default_config: The base config used to generate possible environment variable names
+            critical_settings: If True, after overriding values, raise a
+                               `CriticalSettingException` for any missing value.
+
+        Raises:
+            CriticalSettingException: If any value is missing in the config after overriding them,
+                                      but only if `critical_settings` is `True`
+        """
+        env_vars_overrides = self._get_possible_env_var_overrides(default_config, prefix=self.__formatted_name)
+        possible_names = []
+        for env_var_name, env_var_path in env_vars_overrides:
+            if env_var_name in os.environ:
+                possible_names.append(env_var_name)
+                # traverse the config dict based on the path and set the value
+                self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]] = self._convert_type(
+                    os.environ[env_var_name]
+                )
+
+        # handling of critical setting flag
+        if critical_settings:
+            missing_settings_paths = []
+            for _, env_var_path in env_vars_overrides:
+                if self._get_dict_item_from_path(current_config, env_var_path) is None:
+                    missing_settings_paths.append(env_var_path)
+            if missing_settings_paths:
+                raise self._build_critical_setting_exception(missing_settings_paths)
+
+        for env_key in os.environ.keys():
+            if env_key.startswith(f"{self.__formatted_name}_") and env_key not in possible_names:
+                warnings.warn(f"Environment variable [{env_key}] does not match any possible setting, ignoring.")
+
+    @staticmethod
+    def _get_dict_item_from_path(config_dict: Dict, path: List[str]) -> Any:
+        """Traverse a dict based on a given path.
+
+        Args:
+            config_dict: Dict to traverse
+            path: List of keys representing a path in the dictionary
+
+        Examples:
+            Getting a value:
+                >>> d = {"a": {"b": "1"}}
+                >>> Config._get_dict_item_from_path(d, ["a", "b"])
+                "1"
+
+            Getting a sub-dictionary:
+                >>> d = {"a": {"b": "1"}}
+                >>> Config._get_dict_item_from_path(d, ["a"])
+                {"b": "1"}
+
+        Returns:
+            The last element in the dictionary from the path provided, can be a value or a sub-dictionary
+        """
+        return reduce(operator.getitem, path, config_dict)
 
     def setup_config(
         self,
@@ -204,35 +320,15 @@ class Config:
 
         logger.info(f"Initializing config for {self.app_name}")
 
-        declared_settings = default_config = self._read_yaml_config("default.yml", raise_not_found=True)
+        default_config = self._read_yaml_config("default.yml", raise_not_found=True)
         local_config = self._read_yaml_config("local.yml", raise_not_found=False)
 
-        self._emit_warnings(declared_settings, local_config)
+        declared_settings = self._merge_configs(deepcopy(default_config), local_config)
 
-        # handling of critical setting flag
-        not_found_behaviour = self._raise_on_critical_setting if critical_settings else lambda *args: None
-
-        # set the config settings
-        missing_config_stack = []
-        for section_name, section in declared_settings.items():
-            for setting in section.keys():
-                try:
-                    self._config[section_name][setting] = self._read_from_env(
-                        section_name,
-                        setting,
-                        fallback=partial(
-                            self._read_from_dict,
-                            local_config,
-                            fallback=partial(self._read_from_dict, default_config, fallback=not_found_behaviour),
-                        ),
-                    )
-                except CriticalSettingException:
-                    missing_config_stack.append({"section": section_name, "setting": setting})
-        if missing_config_stack:
-            raise self._build_critical_setting_exception(missing_config_stack)
+        self._environment_override(declared_settings, default_config, critical_settings=critical_settings)
 
         # Cast config to munch so it behaves like an object instead of a dict
-        self._config = munchify(self._config)
+        self._config = munchify(declared_settings)
 
         if self.setup_logging:
             load_logging_config()
@@ -272,40 +368,22 @@ class Config:
 
         logger.info(f"Initializing config for unit tests")
 
-        declared_settings = default_config = self._read_yaml_config("default.yml", raise_not_found=True)
+        default_config = self._read_yaml_config("default.yml", raise_not_found=True)
         test_config = self._read_yaml_config("unit_test.yml", raise_not_found=False)
 
         if test_config:  # Test config available, assuming local dev. default -> unit_test -> env vars -> config_values
-            for section_name, section in declared_settings.items():
-                for setting in section.keys():
-                    self._config[section_name][setting] = self._read_from_dict(
-                        config_values,
-                        section_name,
-                        setting,
-                        fallback=partial(  # type: ignore
-                            self._read_from_env,
-                            fallback=partial(
-                                self._read_from_dict,
-                                test_config,
-                                fallback=partial(self._read_from_dict, default_config, fallback=lambda *args: None),
-                            ),
-                        ),
-                    )
-        else:  # Test config unavailable or empty, assuming CI/CD. default -> env vars -> config_values
-            for section_name, section in declared_settings.items():
-                for setting in section.keys():
-                    self._config[section_name][setting] = self._read_from_dict(
-                        config_values,
-                        section_name,
-                        setting,
-                        fallback=partial(  # type: ignore
-                            self._read_from_env,
-                            fallback=partial(self._read_from_dict, default_config, fallback=lambda *args: None),
-                        ),
-                    )
+            declared_settings = self._merge_configs(deepcopy(default_config), test_config)
+        else:  # Test config available, assuming local dev. default -> env vars -> config_values
+            declared_settings = default_config
+
+        # env var overrides
+        self._environment_override(declared_settings, default_config, critical_settings=False)
+
+        # override with config values
+        declared_settings = self._merge_configs(deepcopy(declared_settings), config_values)
 
         # Cast config to munch so it behaves like an object instead of a dict
-        self._config = munchify(self._config)
+        self._config = munchify(declared_settings)
 
     def overwrite_from_dict(
         self, config_overwrite: Dict[str, Dict[str, Any]], base_config: Optional[Dict[str, Dict[str, Any]]] = None
@@ -316,53 +394,8 @@ class Config:
             config_overwrite: A dictionary structure mimicking the config files.
             base_config: The config being overwritten, default to the main config object of Config.
         """
-        config_overwrite = config_overwrite or self._config
-
-        for section_name, section in config_overwrite.items():
-            for setting in section.keys():
-                self._config[section_name][setting] = self._read_from_dict(
-                    config_overwrite,
-                    section_name,
-                    setting,
-                    fallback=partial(self._read_from_dict, base_config, fallback=lambda *args: None),
-                )
-
-    def _emit_warnings(
-        self, declared_settings: Dict[str, Dict[str, Any]], local_config: Dict[str, Dict[str, Any]]
-    ) -> None:
-        # warn if there are environment variables that are not declared in default.yml or if they are malformed
-        for key in os.environ.keys():
-            if key.startswith(f"{self.__formatted_name}_"):
-                parts = key[len(self.__formatted_name) + 1 :].lower().split("_")
-                if len(parts) == 1:
-                    warnings.warn(
-                        f"Malformed env variable [{key}], skipping. Make sure the env var name is "
-                        f"following this format: {self.__formatted_name}_{{SECTION_NAME}}_{{SETTING_NAME}}"
-                    )
-                    continue
-
-                section_name = ""
-                setting = ""
-                for i in range(1, len(parts)):
-                    section_name = "_".join(parts[0:i])
-                    setting = "_".join(parts[i : len(parts)])
-                    if setting in declared_settings.get(section_name, {}):
-                        break
-                else:
-                    warnings.warn(
-                        f"Environment variable [{key}] does not match to any known section and setting. "
-                        "Ignoring setting."
-                    )
-
-        # warn if there is a setting in local.yml not declared in default.yml
-        for section_name, section in local_config.items():
-            for setting in section:
-                if setting not in declared_settings.get(section_name, {}):
-                    warnings.warn(
-                        f"Setting [{setting}] from section [{section_name}] in the config "
-                        f"file [{self._get_config_file_path('local.yml')}] "
-                        f"is not in the default config. Ignoring setting."
-                    )
+        base_config = base_config or self._config
+        self._merge_configs(base_config, config_overwrite)
 
 
 config = Config()

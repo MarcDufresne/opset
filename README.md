@@ -4,10 +4,10 @@
 
 A library for simplifying the configuration of Python applications at all stages of deployment.
 
-Opset is a config manager that let you manage your configuration via yaml file or environment variables.
+Opset is a config manager that let you manage your configuration via YAML file or environment variables.
 The general principle of Opset is that you want to hold your secrets and manage your configurations via
 configuration files when doing local development and via environment variables when your app is deployed. It is however
-possible to also handle local development through environment variables if the developer see fit.
+possible to also handle local development through environment variables if the developer sees fit.
 
 With Opset you define everything that can be tweaked with your application in one specific
 file (`default.yml`). This way the developers and integrators working with your code will know exactly what setting they
@@ -73,12 +73,17 @@ The content of the default config is loaded first, and if any settings are redef
 Environment variables will apply after the `local.yml` overwrite of the config settings if they have a matching name. To
 do so, the environment variable must be named in the following way:
 
-> {APP_NAME_ALL_CAPS_UNDERSCORE}_{SECTION}_{SETTING}
+> `{APP_NAME_ALL_CAPS}_{SECTION}_{SETTING}`
 
-So for the application my-small-project if we wanted to overwrite the setting port from the section app, your
+So for the application `my-small-project` if we wanted to overwrite the setting `port` from the section `app`, your
 environment variable would need to be named like this:
 
-> MY_SMALL_PROJECT_APP_PORT
+> `MY_SMALL_PROJECT_APP_PORT`
+
+It is also possible to have nested sections, so following the example above, if you wanted to override the value of
+`api.weather.host` you could do so using the following environment variable:
+
+> `MY_SMALL_PROJECT_API_WEATHER_HOST`
 
 ![Order](https://github.com/ElementAI/opset/raw/master/doc/setup_config_overwrite_order.png)
 
@@ -86,7 +91,7 @@ environment variable would need to be named like this:
 
 Opset provides a specific function to load the config when performing unit testing that provides the
 developer with some additional tool to better handle the reality of unit testing. When initializing the config for
-unit tests, the content of the default config is loaded first, and if the `unit_test.yml` file is present and have
+unit tests, the content of the default config is loaded first, and if the `unit_test.yml` file is present and has
 values, the values from `default.yml` are overwritten by `unit_test.yml`. Then the values from the environment variables
 apply and if you need some config values to be specific to your unit tests you have the option to pass config values
 when loading the unit tests that will overwrite all other sources.
@@ -127,12 +132,12 @@ app:
 A warning will be issued when the config is loaded because the setting `ham_level` from the section `app` is not known to
 the default config. The setting and value of `ham_level` will not be loaded in the config and will not be usable in the
 application if it's not present in `default.yml`. As per the example above, you are not forced to set a value for
-settings in the default config (see api_key), but the setting needs to be there.
+settings in the default config (see `api_key`), but the setting needs to be there.
 
 #### Forcing all default settings to have values
 
 There is a special flag called `critical_settings` that is passed to the function `setup_config` from the module.
-This flag is set to `True` by default and will make Opset raises an error if there is no
+This flag is set to `True` by default and will make Opset raise an error if there is no
 value defined for a setting in `default.yml` after having applied all possible configuration files and environment
 variables.
 
@@ -145,13 +150,13 @@ function `opset.setup_config`. The `opset.config` object is a singleton which me
 it is accessed in the code and the loading order, as long as it has been initiated with `opset.setup_config` it
 will hold the same configuration values in all of your application.
 
-The library expects that your project will contain [yaml](https://yaml.org/) files named `default.yml` and
+The library expects that your project will contain [YAML](https://yaml.org/) files named `default.yml` and
 (optionally) `local.yml` and `unit_test.yml`. You will be able to point to the location of those config files when
 invoking `opset.setup_config` as the second positional argument. The file `default.yml` should be committed and follow your
 project and should not contain any secrets. The files `local.yml` and `unit_test.yml` should be added to your
 `.gitignore` to avoid having them committed by accident as those files can contain secrets.
 
-The `opset.setup_config` function will handle everything from reading the yaml file containing your project's config values,
+The `opset.setup_config` function will handle everything from reading the YAML file containing your project's config values,
 to loading them into your environment being mindful not to overwrite ENV variables already present. It needs to be
 passed the name of your application along with the python style path (eg. `module.submodule`) to where the
 `default.yml`, `local.yml` or `unit_test.yml` files are located in the project.
@@ -166,14 +171,14 @@ The function setup_config takes the following arguments:
 
 | Parameter | Description | Default value | Example
 | --- | --- | --- | --- |
-| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
+| `app_name` | The name of the application, usually the name of the repo. Ex: `myproject-example`. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
 | `config_path` | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo. | | `tasks.config` |
 | `critical_settings` | A boolean to specify how null settings in `default.yml` should be handled. If set to `True`, the function will raise an exception when a key in `default.yml` is not defined in `local.yml` or in an environment variable. | `True` | `True` |
 | `setup_logging` | Whether the logging config should be loaded immediately after the config has been loaded. Default to `True`. | `True` | `True` |
 
 ### Making the difference between null and empty
 
-The configuration is stored in yaml and follows the yaml standard. As such, it makes a distinction between null keys
+The configuration is stored in YAML and follows the YAML standard. As such, it makes a distinction between `null` keys
 and empty keys. 
 
 ```
@@ -248,7 +253,7 @@ app:
 
 ### Opset + Environment Variables
 
-One of the features of Opset is how it handles the interaction between the config values in your projects' yaml
+One of the features of Opset is how it handles the interaction between the config values in your projects' YAML
 files and the values that might already be set in your environment. Values already in your environment have higher
 priority and will overwrite any values in your config files. In order to compare against the environment variables,
 Opset builds the names for config values using `<APP_NAME>_<SECTION_NAME>_<SETTING_NAME>` as a template.
@@ -260,8 +265,8 @@ database:
   host: 89.22.102.02
 ```
 
-The conversion to python types from the yaml config file is handled by pyyaml but for environment variables
-Opset do its own conversion depending on the value:
+The conversion to python types from the YAML config file is handled by `pyyaml` but for environment variables
+Opset does its own conversion depending on the value:
 
 - `true`, `t`, `yes`, `y` (case-insensitive) will be converted to a `True` `bool`
 - `false`, `f`, `no`, `n` (case-insensitive) will be converted to a `False` `bool`
@@ -278,15 +283,15 @@ NOTE: Be sure to respect JSON conventions when defining arrays and objects, use 
 
 Declare in the `default.yml` file all the settings that the app will require. For each of the keys,
 you can define a default value. If there is no sensible defaults for a setting, leave it blank (which
-is equivalent to setting it to _null_).
+is equivalent to setting it to `null`).
 
 As a rule of thumb, a default value should be equally good and safe for local, staging or prod environments.
 For example, setting `app.debug` above to `True` would be an error as it may cause prod to run with debug
 messages enabled if prod is not overriding it. The opposite is also true. A default value pointing to a production
 system can easily wipe or overload it during testing if tests do not overwrite the defaults properly. When in doubt,
-prefer a null value.
+prefer a `null` value.
 
-Also, secrets should NEVER be added to this file.
+Also, secrets should _NEVER_ be added to this file.
 
 ### local.yml
 
@@ -418,7 +423,7 @@ If you are using pytest it is recommended to add it to a
 [conftest.py](https://docs.pytest.org/en/2.7.3/plugins.html?highlight=re#conftest-py-plugins) module set at the root of
 your unit tests package.
 
-`opset.setup_unit_test_config` works in the same way as `opset.setup_config` but will load the yaml
+`opset.setup_unit_test_config` works in the same way as `opset.setup_config` but will load the YAML
 config file `unit_test.yml` if present instead of `local.yml`. It also accepts an additional parameter called
 `config_values` that is a dictionary representation of a config file that will have the highest priority when doing
 overwrites.
@@ -435,17 +440,17 @@ In `default.yml`:
 
 ```yaml
 db:
-    user: 
-    password:
-    name: staging
+  user: 
+  password:
+  name: staging
 ```
 
 In `unit_test.yml`:
 
 ```yaml
 db:
-    user: serge
-    password: mystrongpassword
+  user: serge
+  password: mystrongpassword
 ```
 
 In the `conftest.py` module a the root of your unit tests package:
@@ -494,14 +499,14 @@ def is_admin(user_name: str) -> bool:
 In your `default.yml`:
 ```yaml
 app:
-    admin_list: 
+  admin_list: 
 ```
 
 In your `unit_test.yml`:
 ```yaml
 app:
-    admin_list:
-      - "jotaro kujo"
+  admin_list:
+    - "jotaro kujo"
 ```
 
 In your unit test module:
