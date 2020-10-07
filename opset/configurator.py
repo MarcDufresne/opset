@@ -105,7 +105,6 @@ class Config:
         return value
 
     def _get_config_file_path(self, config_name: str) -> str:
-        print(self.config_path, config_name)
         tentative_path = pkg_resources.resource_filename(self.config_path, config_name)
 
         if not os.path.exists(tentative_path):
