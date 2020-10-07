@@ -321,6 +321,7 @@ logging:
   disable_processors: False  # Disables log processors (additional info at the end of the log record)
   logger_overrides:  # overwrite min log level of third party loggers
     googleapiclient: ERROR
+  json_format: False  # Whether the logs should be formatted as json. Defaults to False.
 ```
 
 ### Log Processors

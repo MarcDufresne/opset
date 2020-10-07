@@ -105,6 +105,7 @@ class Config:
         return value
 
     def _get_config_file_path(self, config_name: str) -> str:
+        print(self.config_path, config_name)
         tentative_path = pkg_resources.resource_filename(self.config_path, config_name)
 
         if not os.path.exists(tentative_path):
@@ -532,10 +533,15 @@ def load_logging_config(
     if use_colors:
         default_level_styles["debug"] = "[34m"  # blue
 
-    formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(level_styles=default_level_styles, colors=use_colors),
-        foreign_pre_chain=shared_processors,
-    )
+    if config.logging.get("json_format"):
+        formatter = structlog.stdlib.ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(), foreign_pre_chain=shared_processors
+        )
+    else:
+        formatter = structlog.stdlib.ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(level_styles=default_level_styles, colors=use_colors),
+            foreign_pre_chain=shared_processors,
+        )
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(formatter)

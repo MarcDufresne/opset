@@ -276,3 +276,12 @@ def test_get_dict_item_from_path():
     d = {"a": {"b": "1"}}
     assert Config._get_dict_item_from_path(d, ["a"]) == {"b": "1"}
     assert Config._get_dict_item_from_path(d, ["a", "b"]) == "1"
+
+
+def test_json_format() -> None:
+    mock_conf = mock_default_config.copy()
+    mock_conf["logging"]["json_format"] = True
+    with mock_config_file(mock_conf):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
+        root_logger = logging.getLogger()
+        assert isinstance(root_logger.handlers[0].formatter.processor, structlog.processors.JSONRenderer)
