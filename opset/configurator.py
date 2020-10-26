@@ -169,7 +169,11 @@ class Config:
                 if isinstance(override_value, dict):
                     if base_config[key] is None:
                         base_config[key] = {}
-                    base_config[key] = self._merge_configs(base_config[key], override_value, next_path)
+                    if override_value == {}:
+                        # if the override is an empty dict, don't proceed to a merge, plainly override
+                        base_config[key] = {}
+                    else:
+                        base_config[key] = self._merge_configs(base_config[key], override_value, next_path)
                 else:
                     base_config[key] = override_value
             elif len(current_path) > 1:

@@ -202,10 +202,13 @@ def test_setup_config_unit_test_with_test_config():
     with mock_config_file(
         mock_default_config, unit_test_values={"app": {"api_key": "ma clef!"}, "logging": {"disable_processors": True}}
     ):
-        setup_unit_test_config("fake_tool", "project.config", config_values={"app": {"secret_key": "pirate!"}})
+        setup_unit_test_config(
+            "fake_tool", "project.config", config_values={"app": {"secret_key": "pirate!"}, "level1": {}}
+        )
         assert config.logging.disable_processors is True  # unit_test trumps default
         assert config.app.api_key == "Beton"  # env variables trump unit test
         assert config.app.secret_key == "pirate!"  # values passed during init trump values from env variables
+        assert config.level1 == {}  # complete override rather than merge when passing an empty dict
 
 
 @clear_env_vars
