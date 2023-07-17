@@ -1,31 +1,21 @@
-include makefiles/Makefile.security
-
 default:
 	@echo "View Makefile for usage"
 
-sys_deps := poetry==1.0.2 pre-commit
+.PHONY: install format lint tests
 
-bootstrap: ## Install system dependencies for this project (macOS or pyenv)
-	pip install -U $(sys_deps)
-
-bootstrap-user: ## Install system dependencies for this project in user dir (Linux)
-	pip install --user -U $(sys_deps)
-
-install: ## Install project dependencies
-	pre-commit install
-	poetry config virtualenvs.in-project true
+install:
 	poetry install
 
-lint: ## Lint code with flake8
-	poetry run flake8 opset tests
-	poetry run mypy opset
+format:
+	poetry run ruff --fix .
+	poetry run black .
 
-test: ## Run pytest test suite
-	poetry run pytest --cov-report term-missing --cov=opset tests
+MYPY_TARGETS = opset/
 
-format:  ## Format the code using black and isort
-	poetry run black opset tests
-	poetry run isort -rc -y opset tests
+lint:
+	poetry run ruff .
+	poetry run mypy $(MYPY_TARGETS)
+	poetry run black --check .
 
-requirements.txt: poetry.lock
-	poetry export -f requirements.txt > requirements.txt
+tests:
+	poetry run pytest --cov-report term-missing --cov opset tests

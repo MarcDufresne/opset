@@ -21,7 +21,6 @@ from tests.utils import clear_env_vars, mock_default_config
 @clear_env_vars
 def test_config():
     with mock_config_file(mock_default_config):
-
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
 
         assert str(config) == "Config of fake-tool"
@@ -35,7 +34,6 @@ def test_config_local_override():
         "level1": {"level2": {"level3": {"level4": "new value"}}},
     }
     with mock_config_file(mock_default_config, local_config):
-
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
 
         assert str(config) == "Config of fake-tool"
@@ -56,7 +54,6 @@ def test_config_env_var_override():
     os.environ["FAKE_TOOL_APP_API_KEY"] = "do_not_override"
 
     with mock_config_file(mock_default_config):
-
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
         assert config.app.api_key == "do_not_override"
 
@@ -69,7 +66,6 @@ def test_config_with_logging_config():
 
 
 def test_critical_settings():
-
     with mock_config_file(mock_default_config):
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
 
@@ -161,7 +157,7 @@ def test_load_logging_config():
         logger = load_logging_config()
         stream_handler = [handler for handler in logger.handlers if type(handler) is logging.StreamHandler][0]
         assert type(stream_handler.formatter) is structlog.stdlib.ProcessorFormatter
-        assert type(stream_handler.formatter.processor) is structlog.dev.ConsoleRenderer
+        assert type(stream_handler.formatter.processors[1]) is structlog.dev.ConsoleRenderer
         assert logger.level == logging.DEBUG
 
 
@@ -183,7 +179,7 @@ def test_load_logging_config_with_custom_handler():
             logging.Handler.__init__(self)
 
         def emit(self, record):
-            print(record)
+            print(record)  # noqa: T201
 
     with mock_config_file(mock_default_config):
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
@@ -210,7 +206,6 @@ def test_setup_config_unit_test_with_test_config():
 
 @clear_env_vars
 def test_setup_config_unit_test_no_test_config():
-
     os.environ["FAKE_TOOL_APP_API_KEY"] = "le secret est dans la sauce"
     os.environ["FAKE_TOOL_APP_SECRET_KEY"] = "flibustier!"
 
@@ -284,4 +279,4 @@ def test_json_format() -> None:
     with mock_config_file(mock_conf):
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
         root_logger = logging.getLogger()
-        assert isinstance(root_logger.handlers[0].formatter.processor, structlog.processors.JSONRenderer)
+        assert isinstance(root_logger.handlers[0].formatter.processors[1], structlog.processors.JSONRenderer)
