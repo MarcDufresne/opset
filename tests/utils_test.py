@@ -8,7 +8,6 @@ from tests.utils import mock_default_config
 
 
 def test_mock_config():
-
     overwrite_api_key_value = "bin kin mon coquin toi"
 
     def external_function():

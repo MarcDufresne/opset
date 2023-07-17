@@ -4,13 +4,12 @@
 
 from contextlib import contextmanager
 from copy import copy
-from tempfile import NamedTemporaryFile, _TemporaryFileWrapper  # type: ignore
+from tempfile import NamedTemporaryFile, _TemporaryFileWrapper  # noqa
 from typing import Any, Dict, Generator, Optional
 from unittest.mock import patch
 
 import pkg_resources
 import yaml
-from munch import Munch  # noqa
 
 from opset.configurator import Config, config
 
@@ -73,7 +72,7 @@ def mock_config_file(
             return "this-is-not-a-valid-path.yml"
         with open(temp_file.name, "w") as file_buffer:
             yaml.dump(_config, file_buffer)
-        return temp_file.name  # type: ignore
+        return temp_file.name
 
     configs = {"default.yml": save_as_tmp(default_values, default_temp_file)}
 

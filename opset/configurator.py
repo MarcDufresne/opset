@@ -120,11 +120,7 @@ class Config:
         config_path = self._get_config_file_path(config_name)
         try:
             with open(config_path, "r") as config_file:
-                if hasattr(yaml, "FullLoader"):
-                    # pyyaml 5.1+
-                    return yaml.load(config_file, Loader=yaml.FullLoader) or {}
-                # pyyaml 3.13
-                return yaml.load(config_file) or {}
+                return yaml.load(config_file, Loader=yaml.FullLoader) or {}
         except FileNotFoundError:
             warnings.warn(f"WARNING: Config not found at {config_path}")
             if raise_not_found:
@@ -507,7 +503,7 @@ def load_logging_config(
     pre_processors = [
         structlog.stdlib.filter_by_level,
     ]
-    shared_processors = [
+    shared_processors: Any = [
         structlog.stdlib.add_log_level,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
@@ -517,9 +513,11 @@ def load_logging_config(
     ] + custom_processors
     post_processors = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
 
+    processors: Any = pre_processors + shared_processors + post_processors
+
     structlog.reset_defaults()
     structlog.configure(
-        processors=pre_processors + shared_processors + post_processors,
+        processors=processors,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
         wrapper_class=structlog.stdlib.BoundLogger,
