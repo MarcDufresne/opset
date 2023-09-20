@@ -22,6 +22,8 @@ import structlog
 import yaml
 from munch import munchify
 
+from opset.gcp_secret_handler import is_gcp_available, OPSET_GCP_PREFIX, retrieve_gcp_secret_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -208,6 +210,32 @@ class Config:
 
         return keys
 
+    def _get_unprocessed_gcp_secrets(
+        self, current_config: Dict, current_path: Optional[List[str]] = None
+    ) -> List[List[str]]:
+        """Looks for value starting with OPSET_GCP_PREFIX
+
+        Args:
+            current_config: The base config to be used for determining the possible names.
+            current_path: List of strings representing the path to the value in the config.
+
+        Returns:
+            A list of tuples representing the environment variable name and path in the config
+            of each possible override.
+        """
+        if current_path is None:
+            current_path = []
+
+        keys = []
+        for key, value in current_config.items():
+            if isinstance(value, dict) and len(value):
+                keys.extend(self._get_unprocessed_gcp_secrets(current_config[key], current_path=current_path + [key]))
+            else:
+                if isinstance(value, str) and value.startswith(OPSET_GCP_PREFIX):
+                    keys.append(current_path + [key])
+
+        return keys
+
     def _environment_override(
         self, current_config: Dict, default_config: Dict, critical_settings: bool = False
     ) -> None:
@@ -245,6 +273,25 @@ class Config:
         for env_key in os.environ.keys():
             if env_key.startswith(f"{self.__formatted_name}_") and env_key not in possible_names:
                 warnings.warn(f"Environment variable [{env_key}] does not match any possible setting, ignoring.")
+
+    def _process_gcp_secrets(self, current_config: Dict) -> None:
+        """Process opset+gcp secrets in the config with Google cloud secrets.
+
+        Args:
+            current_config: The config that should be overridden with values from environment variables.
+        """
+        if is_gcp_available():
+            unprocessed_gcp_secrets = self._get_unprocessed_gcp_secrets(current_config)
+            for env_var_path in unprocessed_gcp_secrets:
+                self._get_dict_item_from_path(current_config, env_var_path[:-1])[
+                    env_var_path[-1]
+                ] = retrieve_gcp_secret_value(
+                    self._convert_type(
+                        self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]]
+                    )
+                )
+        else:
+            warnings.warn(f"Extra [gcp] not installed thus values starting with {OPSET_GCP_PREFIX} won't be processed.")
 
     @staticmethod
     def _get_dict_item_from_path(config_dict: Dict, path: List[str]) -> Any:
@@ -322,6 +369,7 @@ class Config:
         declared_settings = self._merge_configs(deepcopy(default_config), local_config)
 
         self._environment_override(declared_settings, default_config, critical_settings=critical_settings)
+        self._process_gcp_secrets(declared_settings)
 
         # Cast config to munch so it behaves like an object instead of a dict
         self._config = munchify(declared_settings)

@@ -10,12 +10,15 @@ import os
 import warnings
 
 import pytest
+from pytest_mock import MockerFixture
 import structlog
 
 from opset import config, load_logging_config, setup_config, setup_unit_test_config
 from opset.configurator import Config, CriticalSettingException
 from opset.utils import mock_config_file
-from tests.utils import clear_env_vars, mock_default_config
+from tests.utils import clear_env_vars, mock_default_config, mock_gcp_config
+
+TESTING_MODULE = "opset.configurator"
 
 
 @clear_env_vars
@@ -280,3 +283,22 @@ def test_json_format() -> None:
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
         root_logger = logging.getLogger()
         assert isinstance(root_logger.handlers[0].formatter.processors[1], structlog.processors.JSONRenderer)
+
+
+
+@pytest.fixture()
+def mock_retrieve_gcp_secret_value(mocker: MockerFixture):
+    return mocker.patch(f"{TESTING_MODULE}.retrieve_gcp_secret_value")
+
+
+def test_gcp_secret_format(mock_retrieve_gcp_secret_value) -> None:
+    fake_secret_value = "Telesto is fun"
+    mock_retrieve_gcp_secret_value.return_value = fake_secret_value
+
+    with mock_config_file(mock_gcp_config):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+
+        assert str(config) == "Config of fake-tool"
+        assert config.secret == fake_secret_value
+        assert config.app.api_key == fake_secret_value
+        assert config.timeout == mock_gcp_config["timeout"]
