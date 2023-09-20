@@ -48,5 +48,5 @@ mock_default_config = {
 mock_gcp_config = {
     "secret": "opset+gcp://projects/test-project-1991/secrets/api-key",
     "app": {"api_key": "opset+gcp://projects/test-project-1991/secrets/api-key"},
-    "timeout": 23
+    "timeout": 23,
 }

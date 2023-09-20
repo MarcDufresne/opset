@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock
 
 import pytest
-from opset.gcp_secret_handler import retrieve_gcp_secret_value, OPSET_GCP_PREFIX, InvalidGcpSecretStringException
-from pytest_mock import MockerFixture
 from google.cloud import secretmanager
+from pytest_mock import MockerFixture
+
+from opset.gcp_secret_handler import OPSET_GCP_PREFIX, InvalidGcpSecretStringException, retrieve_gcp_secret_value
 
 TESTING_MODULE = "opset.gcp_secret_handler"
 A_SECRET_VALUE = "photo mark suede"
@@ -48,16 +49,20 @@ def test_retrieve_gcp_secret_value_with_specified_version(mock_access_secret_ver
     )
     assert gcp_secret_value == A_SECRET_VALUE
 
-@pytest.mark.parametrize("bad_secret_name", [
-    f"{OPSET_GCP_PREFIX}test-1991/secrets/reward",
-    f"{OPSET_GCP_PREFIX}",
-    f"{OPSET_GCP_PREFIX}reward",
-    "bad+prefix://projects/test-1991/secrets/reward",
-])
+
+@pytest.mark.parametrize(
+    "bad_secret_name",
+    [
+        f"{OPSET_GCP_PREFIX}test-1991/secrets/reward",
+        f"{OPSET_GCP_PREFIX}",
+        f"{OPSET_GCP_PREFIX}reward",
+        "bad+prefix://projects/test-1991/secrets/reward",
+    ],
+)
 def test_retrieve_gcp_secret_value_with_bad_secret_name(mock_access_secret_version, bad_secret_name):
     mock_access_secret_version.return_value = _mock_gcp_response()
 
     with pytest.raises(InvalidGcpSecretStringException):
-         retrieve_gcp_secret_value(bad_secret_name)
+        retrieve_gcp_secret_value(bad_secret_name)
 
     mock_access_secret_version.assert_not_called()

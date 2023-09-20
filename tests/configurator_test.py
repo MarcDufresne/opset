@@ -10,8 +10,8 @@ import os
 import warnings
 
 import pytest
-from pytest_mock import MockerFixture
 import structlog
+from pytest_mock import MockerFixture
 
 from opset import config, load_logging_config, setup_config, setup_unit_test_config
 from opset.configurator import Config, CriticalSettingException
@@ -283,7 +283,6 @@ def test_json_format() -> None:
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
         root_logger = logging.getLogger()
         assert isinstance(root_logger.handlers[0].formatter.processors[1], structlog.processors.JSONRenderer)
-
 
 
 @pytest.fixture()

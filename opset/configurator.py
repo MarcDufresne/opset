@@ -22,7 +22,7 @@ import structlog
 import yaml
 from munch import munchify
 
-from opset.gcp_secret_handler import is_gcp_available, OPSET_GCP_PREFIX, retrieve_gcp_secret_value
+from opset.gcp_secret_handler import OPSET_GCP_PREFIX, is_gcp_available, retrieve_gcp_secret_value
 
 logger = logging.getLogger(__name__)
 
