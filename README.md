@@ -277,6 +277,30 @@ Opset does its own conversion depending on the value:
 
 NOTE: Be sure to respect JSON conventions when defining arrays and objects, use lower-case booleans, double quotes, etc.
 
+### Opset + Google Cloud Secret Manager
+Opset is able to fetch secrets from Google Cloud Secret Manager.
+You need to be authenticated using [gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk) or setting up a service account.
+
+The config value should respect on of these formats
+ - `opset+gcp://projects/<my_project>/secrets/<my_secret>`
+ - `opset+gcp://projects/<my_project>/secrets/<my_secret>/versions/<my_version>`
+
+Example
+```yaml
+database:
+  host: opset+gcp://projects/dev-3423/secrets/db_host
+```
+
+It is also possible to create a file `.opset.yml` in your project to create mapping for project name.
+For instance with the following config.
+```yaml
+gcp_project_mapping:
+  dev: dev-3423
+```
+Opset will be able to map the project name like this.
+
+`opset+gcp://projects/dev/secrets/db_host -> opset+gcp://projects/dev-3423/secrets/db_host`
+
 ## Example Configuration file
 
 ### default.yml
@@ -533,6 +557,5 @@ To set yourself up for development on Opset, make sure you are using
 [poetry](https://poetry.eustace.io/docs/) and simply run the following commands from the root directory:
 
 ```bash
-make bootstrap
 make install
 ```
