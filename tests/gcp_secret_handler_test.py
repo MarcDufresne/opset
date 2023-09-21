@@ -52,8 +52,7 @@ def test_retrieve_gcp_secret_value_with_specified_version(mock_access_secret_ver
 
 def test_retrieve_gcp_secret_value_with_mapping(mock_access_secret_version):
     valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test/secrets/reward/versions/2"
-    fake_config = MagicMock()
-    fake_config.configure_mock(gcp_project_mapping = {"test": "test-1991"})
+    fake_config = {"gcp_project_mapping" :{"test": "test-1991"}}
     mock_access_secret_version.return_value = _mock_gcp_response()
 
     gcp_secret_value = retrieve_gcp_secret_value(valid_secret_name, config=fake_config)

@@ -60,10 +60,10 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
 
 
 def _apply_project_mapping(secret_name: str, config: dict[str, Any] | None = None) -> str:
-    if config and config.gcp_project_mapping:
+    if config and config.get("gcp_project_mapping"):
         tokens = secret_name.split("/")
 
-        mapped_project = config.gcp_project_mapping.get(tokens[1])
+        mapped_project = config.get("gcp_project_mapping").get(tokens[1])
         if mapped_project:
             tokens[1] = mapped_project
             return "/".join(tokens)

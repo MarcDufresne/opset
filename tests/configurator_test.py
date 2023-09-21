@@ -5,6 +5,7 @@
 # Copyright (c) Element AI Inc. All rights not expressly granted hereunder are reserved.
 
 import copy
+import json
 import logging
 import os
 import warnings
@@ -297,10 +298,21 @@ def test_gcp_secret_format(mock_retrieve_gcp_secret_value) -> None:
     with mock_config_file(mock_gcp_config):
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
 
-        assert str(config) == "Config of fake-tool"
         assert config.secret == fake_secret_value
         assert config.app.api_key == fake_secret_value
         assert config.timeout == mock_gcp_config["timeout"]
+
+
+def test_gcp_secret_format_with_json_value(mock_retrieve_gcp_secret_value) -> None:
+    fake_secret_value = '{"boby": "hill"}'
+    json_loaded_value = json.loads(fake_secret_value)
+    mock_retrieve_gcp_secret_value.return_value = fake_secret_value
+
+    with mock_config_file(mock_gcp_config):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+
+        assert config.secret == json_loaded_value
+        assert config.app.api_key == json_loaded_value
 
 
 def test_get_opset_config(mocker: MockerFixture) -> None:

@@ -297,11 +297,11 @@ class Config:
         opset_gcp_config = get_opset_config()
 
         for env_var_path in unprocessed_gcp_secret_keys:
-            self._get_dict_item_from_path(current_config, env_var_path[:-1])[
-                env_var_path[-1]
-            ] = retrieve_gcp_secret_value(
-                self._convert_type(self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]]),
-                config=opset_gcp_config,
+            self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]] = self._convert_type(
+                retrieve_gcp_secret_value(
+                    self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]],
+                    config=opset_gcp_config,
+                )
             )
 
     @staticmethod
