@@ -4,7 +4,7 @@ import pytest
 from google.cloud import secretmanager
 from pytest_mock import MockerFixture
 
-from opset.gcp_secret_handler import OPSET_GCP_PREFIX, InvalidGcpSecretStringException, retrieve_gcp_secret_value
+from opset.gcp_secret_handler import OPSET_GCP_PREFIX, InvalidGcpSecretStringException, retrieve_gcp_secret_value, GcpError
 
 TESTING_MODULE = "opset.gcp_secret_handler"
 A_SECRET_VALUE = "photo mark suede"
@@ -19,7 +19,7 @@ def mock_access_secret_version(mocker: MockerFixture):
     return mock_access_secret_version
 
 
-def _mock_gcp_response() -> MagicMock:
+def _mock_gcp_responGse() -> MagicMock:
     mock_response = MagicMock()
     mock_response.payload.data.decode.return_value = A_SECRET_VALUE
 
@@ -52,7 +52,7 @@ def test_retrieve_gcp_secret_value_with_specified_version(mock_access_secret_ver
 
 def test_retrieve_gcp_secret_value_with_mapping(mock_access_secret_version):
     valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test/secrets/reward/versions/2"
-    fake_config = {"gcp_project_mapping" :{"test": "test-1991"}}
+    fake_config = {"gcp_project_mapping": {"test": "test-1991"}}
     mock_access_secret_version.return_value = _mock_gcp_response()
 
     gcp_secret_value = retrieve_gcp_secret_value(valid_secret_name, config=fake_config)
@@ -61,6 +61,19 @@ def test_retrieve_gcp_secret_value_with_mapping(mock_access_secret_version):
         request=secretmanager.AccessSecretVersionRequest(name="projects/test-1991/secrets/reward/versions/2")
     )
     assert gcp_secret_value == A_SECRET_VALUE
+
+
+def test_retrieve_gcp_secret_value_raise(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test/secrets/reward/versions/2"
+    fake_config = {"gcp_project_mapping": {"test": "test-1991"}}
+    mock_access_secret_version.side_effect = Exception
+
+    with pytest.raises(GcpError):
+        retrieve_gcp_secret_value(valid_secret_name, config=fake_config)
+
+        mock_access_secret_version.assert_called_with(
+            request=secretmanager.AccessSecretVersionRequest(name="projects/test-1991/secrets/reward/versions/2")
+        )
 
 
 @pytest.mark.parametrize(

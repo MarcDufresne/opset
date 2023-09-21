@@ -34,6 +34,13 @@ class MissingGcpSecretManagerLibrary(Exception):
         )
 
 
+class GcpError(Exception):
+    """Thrown when the communication with google cloud return an error"""
+
+    def __init__(self, secret_string: str):
+        super().__init__(f"Got error from google cloud secret manager API for secret `{secret_string}`.")
+
+
 def is_gcp_available() -> bool:
     return _has_secretmanager
 
@@ -52,11 +59,15 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
     fully_processed_secret_name = _apply_project_mapping(versioned_secret_name, config)
 
     client = secretmanager.SecretManagerServiceClient()
-    gcp_secret = client.access_secret_version(
-        request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
-    )
 
-    return gcp_secret.payload.data.decode("UTF-8")
+    try:
+        gcp_secret = client.access_secret_version(
+            request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
+        )
+
+        return gcp_secret.payload.data.decode("UTF-8")
+    except Exception as e:
+        raise GcpError(secret_string) from e
 
 
 def _apply_project_mapping(secret_name: str, config: dict[str, Any] | None = None) -> str:
