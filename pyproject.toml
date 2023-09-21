@@ -20,7 +20,10 @@ pytz = ">=2023.3"
 pyyaml = "^6.0"
 structlog = "^23.1"
 colorama = "^0.4"
-google-cloud-secret-manager = {version = "^2.16.4", extras = ["gcp"]}
+google-cloud-secret-manager = {version = "^2.16.4",  optional = true}
+
+[tool.poetry.extras]
+gcp = ["google-cloud-secret-manager"]
 
 [tool.poetry.group.dev.dependencies]
 coveralls = "^3.3.1"
