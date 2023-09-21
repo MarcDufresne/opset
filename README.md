@@ -292,7 +292,7 @@ database:
 ```
 
 It is also possible to create a file `.opset.yml` in your project to create mapping for project name.
-For instance with the following config.
+For instance, with the following config.
 ```yaml
 gcp_project_mapping:
   dev: dev-3423
