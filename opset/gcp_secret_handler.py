@@ -1,5 +1,17 @@
 import logging
+import re
 from typing import Any
+
+try:
+    from google.cloud import secretmanager
+except ImportError:
+    secretmanager = None
+    _has_secretmanager = False
+else:
+    _has_secretmanager = True
+
+
+OPSET_GCP_PREFIX = "opset+gcp://"
 
 logger = logging.getLogger(__name__)
 
@@ -13,37 +25,50 @@ class InvalidGcpSecretStringException(Exception):
         )
 
 
-try:
-    from google.cloud import secretmanager
-except ImportError:
-    secretmanager = None
-    _has_secretmanager = False
-else:
-    _has_secretmanager = True
+class MissingGcpSecretManagerLibrary(Exception):
+    """Thrown when a gcp string are detected without the Google cloud secret manager package installed"""
 
-
-OPSET_GCP_PREFIX = "opset+gcp://"
+    def __init__(self):
+        super().__init__(
+            f"Extra [gcp] not installed. However values starting with {OPSET_GCP_PREFIX} are present in the config."
+        )
 
 
 def is_gcp_available() -> bool:
     return _has_secretmanager
 
 
-def retrieve_gcp_secret_value(secret_string: str) -> Any:
+def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None = None) -> str:
     """Retrieve the secret value from Google cloud secret manager
 
     :param secret_string: Unprocessed secret value that contains information for secretmanager.
+    :param config: Opset Gcp config that contains mapping
     :return: Value from Google cloud secret manager
     """
     _validate_secret_string(secret_string)
     logger.debug(f"Fetching secret from gcp using {secret_string}")
     parsed_secret_name = _parse_unprocessed_gcp_secret(secret_string)
-    secret_name = _add_version_if_needed(parsed_secret_name)
+    versioned_secret_name = _add_version_if_needed(parsed_secret_name)
+    fully_processed_secret_name = _apply_project_mapping(versioned_secret_name, config)
 
     client = secretmanager.SecretManagerServiceClient()
-    gcp_secret = client.access_secret_version(request=secretmanager.AccessSecretVersionRequest(name=secret_name))
+    gcp_secret = client.access_secret_version(
+        request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
+    )
 
     return gcp_secret.payload.data.decode("UTF-8")
+
+
+def _apply_project_mapping(secret_name: str, config: dict[str, Any] | None = None) -> str:
+    if config and config.gcp_project_mapping:
+        tokens = secret_name.split("/")
+
+        mapped_project = config.gcp_project_mapping.get(tokens[1])
+        if mapped_project:
+            tokens[1] = mapped_project
+            return "/".join(tokens)
+
+    return secret_name
 
 
 def _parse_unprocessed_gcp_secret(secret_string: str) -> str:
@@ -55,18 +80,15 @@ def _parse_unprocessed_gcp_secret(secret_string: str) -> str:
 
 
 def _validate_secret_string(secret_string: str) -> None:
-    try:
-        prefix, path = secret_string.split("//")
-        tokens = path.split("/")
+    match = re.match(r"^opset\+gcp://projects/.+?/secrets/[^/]+?(?P<version>/versions/[^/]+?)?$", secret_string)
 
-        if f"{prefix}//" != OPSET_GCP_PREFIX or tokens[0] != "projects" or tokens[2] != "secrets":
-            raise InvalidGcpSecretStringException(secret_string)
-    except IndexError:
+    if not match:
         raise InvalidGcpSecretStringException(secret_string)
 
 
 def _add_version_if_needed(secret_name: str) -> str:
-    if "versions" not in secret_name:
+    match = re.match(r"^projects/.+?/secrets/[^/]+?(?P<version>/versions/[^/]+?)?$", secret_name)
+    if match and not match.groupdict().get("version"):
         return f"{secret_name}/versions/latest"
 
     return secret_name

@@ -22,7 +22,14 @@ import structlog
 import yaml
 from munch import munchify
 
-from opset.gcp_secret_handler import OPSET_GCP_PREFIX, is_gcp_available, retrieve_gcp_secret_value
+from opset.gcp_secret_handler import (
+    OPSET_GCP_PREFIX,
+    is_gcp_available,
+    retrieve_gcp_secret_value,
+    MissingGcpSecretManagerLibrary,
+)
+
+OPSET_CONFIG_FILENAME = ".opset.yml"
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +217,7 @@ class Config:
 
         return keys
 
-    def _get_unprocessed_gcp_secrets(
+    def _get_unprocessed_gcp_secret_keys(
         self, current_config: Dict, current_path: Optional[List[str]] = None
     ) -> List[List[str]]:
         """Looks for value starting with OPSET_GCP_PREFIX
@@ -229,7 +236,9 @@ class Config:
         keys = []
         for key, value in current_config.items():
             if isinstance(value, dict) and len(value):
-                keys.extend(self._get_unprocessed_gcp_secrets(current_config[key], current_path=current_path + [key]))
+                keys.extend(
+                    self._get_unprocessed_gcp_secret_keys(current_config[key], current_path=current_path + [key])
+                )
             else:
                 if isinstance(value, str) and value.startswith(OPSET_GCP_PREFIX):
                     keys.append(current_path + [key])
@@ -280,18 +289,20 @@ class Config:
         Args:
             current_config: The config that should be overridden with values from environment variables.
         """
-        if is_gcp_available():
-            unprocessed_gcp_secrets = self._get_unprocessed_gcp_secrets(current_config)
-            for env_var_path in unprocessed_gcp_secrets:
-                self._get_dict_item_from_path(current_config, env_var_path[:-1])[
-                    env_var_path[-1]
-                ] = retrieve_gcp_secret_value(
-                    self._convert_type(
-                        self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]]
-                    )
-                )
-        else:
-            warnings.warn(f"Extra [gcp] not installed thus values starting with {OPSET_GCP_PREFIX} won't be processed.")
+        unprocessed_gcp_secret_keys = self._get_unprocessed_gcp_secret_keys(current_config)
+
+        if not is_gcp_available() and unprocessed_gcp_secret_keys:
+            raise MissingGcpSecretManagerLibrary()
+
+        opset_gcp_config = get_opset_config()
+
+        for env_var_path in unprocessed_gcp_secret_keys:
+            self._get_dict_item_from_path(current_config, env_var_path[:-1])[
+                env_var_path[-1]
+            ] = retrieve_gcp_secret_value(
+                self._convert_type(self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]]),
+                config=opset_gcp_config,
+            )
 
     @staticmethod
     def _get_dict_item_from_path(config_dict: Dict, path: List[str]) -> Any:
@@ -607,3 +618,26 @@ def load_logging_config(
             logging.getLogger(logger_name).setLevel(min_level)
 
     return root_logger
+
+
+def get_opset_config() -> dict[str, Any] | None:
+    """Search for opset config and load it if it exists.
+
+    :return: Opset Config or None
+    """
+    current_dir = os.path.dirname(__file__)
+    config_path = _search_for_config_file(current_dir)
+
+    if config_path:
+        with open(config_path, "r") as config_file:
+            return yaml.load(config_file, Loader=yaml.FullLoader) or {}
+
+
+def _search_for_config_file(dir_path: str) -> str | None:
+    if os.path.exists(os.path.join(dir_path, OPSET_CONFIG_FILENAME)):
+        return os.path.join(dir_path, OPSET_CONFIG_FILENAME)
+    else:
+        if dir_path == "/":
+            return None
+        parent_dir = os.path.abspath(os.path.join(dir_path, os.pardir))
+        return _search_for_config_file(parent_dir)

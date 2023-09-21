@@ -14,7 +14,7 @@ import structlog
 from pytest_mock import MockerFixture
 
 from opset import config, load_logging_config, setup_config, setup_unit_test_config
-from opset.configurator import Config, CriticalSettingException
+from opset.configurator import Config, CriticalSettingException, get_opset_config
 from opset.utils import mock_config_file
 from tests.utils import clear_env_vars, mock_default_config, mock_gcp_config
 
@@ -301,3 +301,16 @@ def test_gcp_secret_format(mock_retrieve_gcp_secret_value) -> None:
         assert config.secret == fake_secret_value
         assert config.app.api_key == fake_secret_value
         assert config.timeout == mock_gcp_config["timeout"]
+
+
+def test_get_opset_config(mocker: MockerFixture) -> None:
+    mocker.patch(f"{TESTING_MODULE}.os.path.exists", return_true=True)
+    mocker.patch("builtins.open")
+    mock_yaml = mocker.patch(f"{TESTING_MODULE}.yaml")
+    fake_config = mocker.MagicMock()
+    fake_config.configure_mock(gcp_project_mapping={"test-1991": "test"})
+    mock_yaml.load = mocker.MagicMock(return_value=fake_config)
+
+    opset_config = get_opset_config()
+
+    assert opset_config.gcp_project_mapping == {"test-1991": "test"}
