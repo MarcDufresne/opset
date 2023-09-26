@@ -22,6 +22,15 @@ import structlog
 import yaml
 from munch import munchify
 
+from opset.gcp_secret_handler import (
+    OPSET_GCP_PREFIX,
+    is_gcp_available,
+    retrieve_gcp_secret_value,
+    MissingGcpSecretManagerLibrary,
+)
+
+OPSET_CONFIG_FILENAME = ".opset.yml"
+
 logger = logging.getLogger(__name__)
 
 
@@ -208,6 +217,34 @@ class Config:
 
         return keys
 
+    def _get_unprocessed_gcp_secret_keys(
+        self, current_config: Dict, current_path: Optional[List[str]] = None
+    ) -> List[List[str]]:
+        """Looks for value starting with OPSET_GCP_PREFIX
+
+        Args:
+            current_config: The base config to be used for determining the possible names.
+            current_path: List of strings representing the path to the value in the config.
+
+        Returns:
+            A list of tuples representing the environment variable name and path in the config
+            of each possible override.
+        """
+        if current_path is None:
+            current_path = []
+
+        keys = []
+        for key, value in current_config.items():
+            if isinstance(value, dict) and len(value):
+                keys.extend(
+                    self._get_unprocessed_gcp_secret_keys(current_config[key], current_path=current_path + [key])
+                )
+            else:
+                if isinstance(value, str) and value.startswith(OPSET_GCP_PREFIX):
+                    keys.append(current_path + [key])
+
+        return keys
+
     def _environment_override(
         self, current_config: Dict, default_config: Dict, critical_settings: bool = False
     ) -> None:
@@ -245,6 +282,27 @@ class Config:
         for env_key in os.environ.keys():
             if env_key.startswith(f"{self.__formatted_name}_") and env_key not in possible_names:
                 warnings.warn(f"Environment variable [{env_key}] does not match any possible setting, ignoring.")
+
+    def _process_gcp_secrets(self, current_config: Dict) -> None:
+        """Process opset+gcp secrets in the config with Google cloud secrets.
+
+        Args:
+            current_config: The config that should be overridden with values from environment variables.
+        """
+        unprocessed_gcp_secret_keys = self._get_unprocessed_gcp_secret_keys(current_config)
+
+        if not is_gcp_available() and unprocessed_gcp_secret_keys:
+            raise MissingGcpSecretManagerLibrary()
+
+        opset_gcp_config = get_opset_config()
+
+        for env_var_path in unprocessed_gcp_secret_keys:
+            self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]] = self._convert_type(
+                retrieve_gcp_secret_value(
+                    self._get_dict_item_from_path(current_config, env_var_path[:-1])[env_var_path[-1]],
+                    config=opset_gcp_config,
+                )
+            )
 
     @staticmethod
     def _get_dict_item_from_path(config_dict: Dict, path: List[str]) -> Any:
@@ -322,6 +380,7 @@ class Config:
         declared_settings = self._merge_configs(deepcopy(default_config), local_config)
 
         self._environment_override(declared_settings, default_config, critical_settings=critical_settings)
+        self._process_gcp_secrets(declared_settings)
 
         # Cast config to munch so it behaves like an object instead of a dict
         self._config = munchify(declared_settings)
@@ -559,3 +618,29 @@ def load_logging_config(
             logging.getLogger(logger_name).setLevel(min_level)
 
     return root_logger
+
+
+def get_opset_config() -> dict[str, Any] | None:
+    """Search for opset config and load it if it exists.
+
+    Returns:
+        Opset Config or None
+    """
+    current_dir = os.path.dirname(__file__)
+    config_path = _search_for_config_file(current_dir)
+
+    if config_path:
+        with open(config_path, "r") as config_file:
+            return yaml.load(config_file, Loader=yaml.FullLoader) or {}
+
+    return None
+
+
+def _search_for_config_file(dir_path: str) -> str | None:
+    if os.path.exists(os.path.join(dir_path, OPSET_CONFIG_FILENAME)):
+        return os.path.join(dir_path, OPSET_CONFIG_FILENAME)
+    else:
+        if dir_path == "/":
+            return None
+        parent_dir = os.path.abspath(os.path.join(dir_path, os.pardir))
+        return _search_for_config_file(parent_dir)

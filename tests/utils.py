@@ -44,3 +44,9 @@ mock_default_config = {
     "snake_case_section": {"value": 123, "split_value": 111},
     "level1": {"level2": {"level3": {"level4": "value"}}},
 }
+
+mock_gcp_config = {
+    "secret": "opset+gcp://projects/test-project-1991/secrets/api-key",
+    "app": {"api_key": "opset+gcp://projects/test-project-1991/secrets/api-key"},
+    "timeout": 23,
+}

@@ -5,17 +5,21 @@
 # Copyright (c) Element AI Inc. All rights not expressly granted hereunder are reserved.
 
 import copy
+import json
 import logging
 import os
 import warnings
 
 import pytest
 import structlog
+from pytest_mock import MockerFixture
 
 from opset import config, load_logging_config, setup_config, setup_unit_test_config
-from opset.configurator import Config, CriticalSettingException
+from opset.configurator import Config, CriticalSettingException, get_opset_config
 from opset.utils import mock_config_file
-from tests.utils import clear_env_vars, mock_default_config
+from tests.utils import clear_env_vars, mock_default_config, mock_gcp_config
+
+TESTING_MODULE = "opset.configurator"
 
 
 @clear_env_vars
@@ -280,3 +284,45 @@ def test_json_format() -> None:
         setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=True, reload_config=True)
         root_logger = logging.getLogger()
         assert isinstance(root_logger.handlers[0].formatter.processors[1], structlog.processors.JSONRenderer)
+
+
+@pytest.fixture()
+def mock_retrieve_gcp_secret_value(mocker: MockerFixture):
+    return mocker.patch(f"{TESTING_MODULE}.retrieve_gcp_secret_value")
+
+
+def test_gcp_secret_format(mock_retrieve_gcp_secret_value) -> None:
+    fake_secret_value = "Telesto is fun"
+    mock_retrieve_gcp_secret_value.return_value = fake_secret_value
+
+    with mock_config_file(mock_gcp_config):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+
+        assert config.secret == fake_secret_value
+        assert config.app.api_key == fake_secret_value
+        assert config.timeout == mock_gcp_config["timeout"]
+
+
+def test_gcp_secret_format_with_json_value(mock_retrieve_gcp_secret_value) -> None:
+    fake_secret_value = '{"boby": "hill"}'
+    json_loaded_value = json.loads(fake_secret_value)
+    mock_retrieve_gcp_secret_value.return_value = fake_secret_value
+
+    with mock_config_file(mock_gcp_config):
+        setup_config("fake-tool", "project.config", critical_settings=False, setup_logging=False, reload_config=True)
+
+        assert config.secret == json_loaded_value
+        assert config.app.api_key == json_loaded_value
+
+
+def test_get_opset_config(mocker: MockerFixture) -> None:
+    mocker.patch(f"{TESTING_MODULE}.os.path.exists", return_true=True)
+    mocker.patch("builtins.open")
+    mock_yaml = mocker.patch(f"{TESTING_MODULE}.yaml")
+    fake_config = mocker.MagicMock()
+    fake_config.configure_mock(gcp_project_mapping={"test": "test-1991"})
+    mock_yaml.load = mocker.MagicMock(return_value=fake_config)
+
+    opset_config = get_opset_config()
+
+    assert opset_config.gcp_project_mapping == {"test": "test-1991"}
