@@ -278,6 +278,8 @@ Opset does its own conversion depending on the value:
 NOTE: Be sure to respect JSON conventions when defining arrays and objects, use lower-case booleans, double quotes, etc.
 
 ### Opset + Google Cloud Secret Manager
+You need to install opset with the extras `gcp` in order to use this feature.
+
 Opset is able to fetch secrets from Google Cloud Secret Manager.
 You need to be authenticated using [gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk) or setting up a service account.
 
