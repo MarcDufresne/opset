@@ -19,7 +19,7 @@ def mock_access_secret_version(mocker: MockerFixture):
     return mock_access_secret_version
 
 
-def _mock_gcp_responGse() -> MagicMock:
+def _mock_gcp_response() -> MagicMock:
     mock_response = MagicMock()
     mock_response.payload.data.decode.return_value = A_SECRET_VALUE
 

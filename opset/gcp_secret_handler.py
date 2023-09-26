@@ -48,9 +48,12 @@ def is_gcp_available() -> bool:
 def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None = None) -> str:
     """Retrieve the secret value from Google cloud secret manager
 
-    :param secret_string: Unprocessed secret value that contains information for secretmanager.
-    :param config: Opset Gcp config that contains mapping
-    :return: Value from Google cloud secret manager
+    Args:
+        secret_string: Unprocessed secret value that contains information for secretmanager.
+        config: Opset Gcp config that contains mapping
+
+    Returns:
+        Value from Google cloud secret manager
     """
     _validate_secret_string(secret_string)
     logger.debug(f"Fetching secret from gcp using {secret_string}")

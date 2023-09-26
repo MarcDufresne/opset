@@ -623,7 +623,8 @@ def load_logging_config(
 def get_opset_config() -> dict[str, Any] | None:
     """Search for opset config and load it if it exists.
 
-    :return: Opset Config or None
+    Returns:
+        Opset Config or None
     """
     current_dir = os.path.dirname(__file__)
     config_path = _search_for_config_file(current_dir)
@@ -631,6 +632,8 @@ def get_opset_config() -> dict[str, Any] | None:
     if config_path:
         with open(config_path, "r") as config_file:
             return yaml.load(config_file, Loader=yaml.FullLoader) or {}
+
+    return None
 
 
 def _search_for_config_file(dir_path: str) -> str | None:

@@ -320,9 +320,9 @@ def test_get_opset_config(mocker: MockerFixture) -> None:
     mocker.patch("builtins.open")
     mock_yaml = mocker.patch(f"{TESTING_MODULE}.yaml")
     fake_config = mocker.MagicMock()
-    fake_config.configure_mock(gcp_project_mapping={"test-1991": "test"})
+    fake_config.configure_mock(gcp_project_mapping={"test": "test-1991"})
     mock_yaml.load = mocker.MagicMock(return_value=fake_config)
 
     opset_config = get_opset_config()
 
-    assert opset_config.gcp_project_mapping == {"test-1991": "test"}
+    assert opset_config.gcp_project_mapping == {"test": "test-1991"}
