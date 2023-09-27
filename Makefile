@@ -19,3 +19,6 @@ lint:
 
 tests:
 	poetry run pytest --cov-report term-missing --cov opset tests
+
+tests-ci:
+	poetry run pytest --cov-report term-missing --cov-report lcov --cov opset tests
