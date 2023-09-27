@@ -5,7 +5,7 @@ from typing import Any, cast
 try:
     from google.cloud import secretmanager
 except ImportError:
-    secretmanager = None # type: ignore
+    secretmanager = None  # type: ignore
     _has_secretmanager = False
 else:
     _has_secretmanager = True
