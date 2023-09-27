@@ -1,11 +1,11 @@
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 try:
     from google.cloud import secretmanager
 except ImportError:
-    secretmanager = None
+    secretmanager = None  # type: ignore
     _has_secretmanager = False
 else:
     _has_secretmanager = True
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class InvalidGcpSecretStringException(Exception):
     """Thrown when encounter an invalid gcp secret string."""
 
-    def __init__(self, secret_string: str):
+    def __init__(self, secret_string: str) -> None:
         super().__init__(
             f"Invalid gcp secret value `{secret_string}`. Expected format is `{OPSET_GCP_PREFIX}projects/*/secrets/*`"
         )
@@ -28,7 +28,7 @@ class InvalidGcpSecretStringException(Exception):
 class MissingGcpSecretManagerLibrary(Exception):
     """Thrown when a gcp string are detected without the Google cloud secret manager package installed"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             f"Extra [gcp] not installed. However values starting with {OPSET_GCP_PREFIX} are present in the config."
         )
@@ -77,7 +77,7 @@ def _apply_project_mapping(secret_name: str, config: dict[str, Any] | None = Non
     if config and config.get("gcp_project_mapping"):
         tokens = secret_name.split("/")
 
-        mapped_project = config.get("gcp_project_mapping").get(tokens[1])
+        mapped_project = cast(dict, config.get("gcp_project_mapping")).get(tokens[1])
         if mapped_project:
             tokens[1] = mapped_project
             return "/".join(tokens)

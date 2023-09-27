@@ -24,9 +24,9 @@ from munch import munchify
 
 from opset.gcp_secret_handler import (
     OPSET_GCP_PREFIX,
+    MissingGcpSecretManagerLibrary,
     is_gcp_available,
     retrieve_gcp_secret_value,
-    MissingGcpSecretManagerLibrary,
 )
 
 OPSET_CONFIG_FILENAME = ".opset.yml"
