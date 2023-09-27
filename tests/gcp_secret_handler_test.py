@@ -4,7 +4,12 @@ import pytest
 from google.cloud import secretmanager
 from pytest_mock import MockerFixture
 
-from opset.gcp_secret_handler import OPSET_GCP_PREFIX, InvalidGcpSecretStringException, retrieve_gcp_secret_value, GcpError
+from opset.gcp_secret_handler import (
+    OPSET_GCP_PREFIX,
+    GcpError,
+    InvalidGcpSecretStringException,
+    retrieve_gcp_secret_value,
+)
 
 TESTING_MODULE = "opset.gcp_secret_handler"
 A_SECRET_VALUE = "photo mark suede"
