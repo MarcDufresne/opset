@@ -32,6 +32,7 @@ This library is available on PyPI under the name Opset. You can install with pip
     1. [Making the difference between null and empty](#making-the-difference-between-null-and-empty)
 1. [Example of Usage](#example-of-usage)
     1. [Opset + Environment Variables](#Opset--environment-variables)
+    1. [Opset + Google Cloud Secret Manager](#Opset--google-cloud-secret-manager)
     1. [Naming your config sections](#naming-your-config-sections)
     1. [Controlling your entry points](#controlling-your-entry-points)
 1. [Example Configuration file](#example-configuration-file)
