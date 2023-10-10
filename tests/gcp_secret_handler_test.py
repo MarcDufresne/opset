@@ -8,6 +8,7 @@ from opset.gcp_secret_handler import (
     OPSET_GCP_PREFIX,
     GcpError,
     InvalidGcpSecretStringException,
+    OpsetSecretManagerClient,
     retrieve_gcp_secret_value,
 )
 
@@ -98,3 +99,13 @@ def test_retrieve_gcp_secret_value_with_bad_secret_name(mock_access_secret_versi
         retrieve_gcp_secret_value(bad_secret_name)
 
     mock_access_secret_version.assert_not_called()
+
+
+def test_opset_secret_manager_client(mocker: MockerFixture):
+    mock_client = mocker.patch(f"{TESTING_MODULE}.secretmanager.SecretManagerServiceClient")
+
+    OpsetSecretManagerClient.get_or_create()
+    instance = OpsetSecretManagerClient.get_or_create()
+
+    assert mock_client.call_count == 1
+    assert instance == mock_client.return_value
