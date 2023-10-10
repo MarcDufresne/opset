@@ -4,3 +4,5 @@
 
 from opset.configurator import BaseProcessor, config, load_logging_config, setup_config, setup_unit_test_config  # noqa
 from opset.utils import mock_config  # noqa
+
+__all__ = ["BaseProcessor", "config", "load_logging_config", "setup_config", "setup_unit_test_config", "mock_config"]

@@ -17,9 +17,9 @@ A_SECRET_VALUE = "photo mark suede"
 
 @pytest.fixture()
 def mock_access_secret_version(mocker: MockerFixture):
-    mock_client = mocker.patch(f"{TESTING_MODULE}.secretmanager.SecretManagerServiceClient")
+    mock_client = mocker.patch(f"{TESTING_MODULE}.OpsetSecretManagerClient")
     mock_access_secret_version = mocker.MagicMock()
-    mock_client.return_value.access_secret_version = mock_access_secret_version
+    mock_client.get_or_create.return_value.access_secret_version = mock_access_secret_version
 
     return mock_access_secret_version
 
