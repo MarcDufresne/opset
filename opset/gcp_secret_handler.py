@@ -45,6 +45,17 @@ def is_gcp_available() -> bool:
     return _has_secretmanager
 
 
+class OpsetSecretManagerClient:
+    instance: secretmanager.SecretManagerServiceClient | None = None
+
+    @classmethod
+    def get_or_create(cls) -> secretmanager.SecretManagerServiceClient:
+        if not cls.instance:
+            cls.instance = secretmanager.SecretManagerServiceClient()
+
+        return cls.instance
+
+
 def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None = None) -> str:
     """Retrieve the secret value from Google cloud secret manager
 
@@ -61,7 +72,7 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
     versioned_secret_name = _add_version_if_needed(parsed_secret_name)
     fully_processed_secret_name = _apply_project_mapping(versioned_secret_name, config)
 
-    client = secretmanager.SecretManagerServiceClient()
+    client = OpsetSecretManagerClient.get_or_create()
 
     try:
         gcp_secret = client.access_secret_version(
