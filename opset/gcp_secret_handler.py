@@ -46,10 +46,10 @@ def is_gcp_available() -> bool:
 
 
 class OpsetSecretManagerClient:
-    instance: secretmanager.SecretManagerServiceClient = None
+    instance: secretmanager.SecretManagerServiceClient | None = None
 
     @classmethod
-    def get_or_create(cls):
+    def get_or_create(cls) -> secretmanager.SecretManagerServiceClient:
         if not cls.instance:
             cls.instance = secretmanager.SecretManagerServiceClient()
 
