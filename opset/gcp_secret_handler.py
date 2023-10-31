@@ -5,7 +5,7 @@ from typing import Any, cast
 try:
     from google.cloud import secretmanager
 except ImportError:
-    secretmanager = None
+    secretmanager = None  # type: ignore
     _has_secretmanager = False
 else:
     _has_secretmanager = True
@@ -78,7 +78,7 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
             request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
         )
 
-        return cast(str, gcp_secret.payload.data.decode("UTF-8"))
+        return gcp_secret.payload.data.decode("UTF-8")
     except Exception as e:
         raise GcpError(secret_string) from e
 
