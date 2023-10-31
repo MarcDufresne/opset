@@ -10,7 +10,6 @@ except ImportError:
 else:
     _has_secretmanager = True
 
-
 OPSET_GCP_PREFIX = "opset+gcp://"
 
 logger = logging.getLogger(__name__)
@@ -46,10 +45,10 @@ def is_gcp_available() -> bool:
 
 
 class OpsetSecretManagerClient:
-    instance: secretmanager.SecretManagerServiceClient | None = None
+    instance: Any | None = None
 
     @classmethod
-    def get_or_create(cls) -> secretmanager.SecretManagerServiceClient:
+    def get_or_create(cls) -> Any:
         if not cls.instance:
             cls.instance = secretmanager.SecretManagerServiceClient()
 
@@ -72,7 +71,7 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
     versioned_secret_name = _add_version_if_needed(parsed_secret_name)
     fully_processed_secret_name = _apply_project_mapping(versioned_secret_name, config)
 
-    client = OpsetSecretManagerClient.get_or_create()
+    client: secretmanager.SecretManagerServiceClient = OpsetSecretManagerClient.get_or_create()
 
     try:
         gcp_secret = client.access_secret_version(
