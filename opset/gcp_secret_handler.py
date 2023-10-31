@@ -5,11 +5,12 @@ from typing import Any, cast
 try:
     from google.cloud import secretmanager
 except ImportError:
+    SecretManagerClientType = Any
     secretmanager = None  # type: ignore
     _has_secretmanager = False
 else:
+    SecretManagerClientType = secretmanager.SecretManagerServiceClient
     _has_secretmanager = True
-
 
 OPSET_GCP_PREFIX = "opset+gcp://"
 
@@ -46,10 +47,10 @@ def is_gcp_available() -> bool:
 
 
 class OpsetSecretManagerClient:
-    instance: secretmanager.SecretManagerServiceClient | None = None
+    instance: SecretManagerClientType | None = None
 
     @classmethod
-    def get_or_create(cls) -> secretmanager.SecretManagerServiceClient:
+    def get_or_create(cls) -> SecretManagerClientType:
         if not cls.instance:
             cls.instance = secretmanager.SecretManagerServiceClient()
 
