@@ -4,6 +4,9 @@
 
 import os
 from functools import wraps
+from typing import Any
+
+from opset import OpsetLoggingConfig, OpsetSettingsModel
 
 
 def remove_env_vars(app_name: str):
@@ -32,21 +35,42 @@ def clear_env_vars(fn):
     return wrapper
 
 
-mock_default_config = {
-    "app": {"api_key": "my_api_key", "secret_key": "my_secret_key", "no_default": None, "v": None},
-    "logging": {
-        "date_format": "iso",
-        "min_level": "DEBUG",
-        "use_utc": "UTC",
-        "disable_processors": False,
-        "logger_overrides": {"some_3rd_party_lib": "ERROR"},
-    },
-    "snake_case_section": {"value": 123, "split_value": 111},
-    "level1": {"level2": {"level3": {"level4": "value"}}},
-}
+class MockAppConfig(OpsetSettingsModel):
+    api_key: str = "my_api_key"
+    secret_key: str = "my_secret_key"
+    no_default: str | None = None
+    v: str | None = None
+    d: dict[str, Any] = {}
 
-mock_gcp_config = {
-    "secret": "opset+gcp://projects/test-project-1991/secrets/api-key",
-    "app": {"api_key": "opset+gcp://projects/test-project-1991/secrets/api-key"},
-    "timeout": 23,
-}
+
+class Mocklevel3Config(OpsetSettingsModel):
+    level4: str = "value"
+
+
+class MockLevel2Config(OpsetSettingsModel):
+    level3: Mocklevel3Config
+
+
+class MockLevel1Config(OpsetSettingsModel):
+    level2: MockLevel2Config = MockLevel2Config()
+
+
+class MockConfig(OpsetSettingsModel):
+    timeout: int = 20
+    app: MockAppConfig
+    logging: OpsetLoggingConfig
+    level1: MockLevel1Config
+
+
+mock_default_config = MockConfig().model_dump()
+# **{
+#     "app": {"api_key": "my_api_key", "secret_key": "my_secret_key", "no_default": None, "v": None},
+#     "logging": {
+#         "date_format": "iso",
+#         "min_level": "DEBUG",
+#         "use_utc": True,
+#         "disable_processors": False,
+#         "logger_overrides": {"some_3rd_party_lib": "ERROR"},
+#     },
+#     "level1": {"level2": {"level3": {"level4": "value"}}},
+# }

@@ -22,6 +22,7 @@ structlog = "^23.1"
 colorama = "^0.4"
 google-cloud-secret-manager = {version = "^2.16.4",  optional = true}
 setuptools = "^68.2.2"
+pydantic = "^2.4.2"
 
 [tool.poetry.extras]
 gcp = ["google-cloud-secret-manager"]
