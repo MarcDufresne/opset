@@ -52,7 +52,7 @@ class OpsetSettingsModel(BaseModel):
                     if (default := field_info.get_default()) and default != PydanticUndefined:
                         values[k] = default
                     else:
-                        values[k] = field_info.annotation()
+                        values[k] = field_type()
 
         if not is_gcp_available() and unprocessed_gcp_secret_keys:
             raise MissingGcpSecretManagerLibrary()
