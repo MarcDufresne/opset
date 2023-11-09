@@ -47,7 +47,8 @@ class OpsetSettingsModel(BaseModel):
                         values[k] = cls._convert_type(v)
 
             else:
-                if inspect.isclass(field_info.annotation) and issubclass(field_info.annotation, OpsetSettingsModel):
+                field_type = typing.get_origin(field_info.annotation) or field_info.annotation
+                if inspect.isclass(field_type) and issubclass(field_type, OpsetSettingsModel):
                     if (default := field_info.get_default()) and default != PydanticUndefined:
                         values[k] = default
                     else:
