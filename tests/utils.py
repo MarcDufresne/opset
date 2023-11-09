@@ -63,14 +63,3 @@ class MockConfig(OpsetSettingsModel):
 
 
 mock_default_config = MockConfig().model_dump()
-# **{
-#     "app": {"api_key": "my_api_key", "secret_key": "my_secret_key", "no_default": None, "v": None},
-#     "logging": {
-#         "date_format": "iso",
-#         "min_level": "DEBUG",
-#         "use_utc": True,
-#         "disable_processors": False,
-#         "logger_overrides": {"some_3rd_party_lib": "ERROR"},
-#     },
-#     "level1": {"level2": {"level3": {"level4": "value"}}},
-# }
