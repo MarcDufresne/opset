@@ -34,6 +34,7 @@ def mock_config_file(
         An instance of a TemporaryFile wrapper to be used for replacing the return value of resource_filename. It is
         not necessary to capture this value with _as_ since the config will already be spoofed.
     """
+
     def save_as_tmp(_config: Dict[str, Dict[str, Any]], temp_file: _TemporaryFileWrapper) -> str:
         if not _config:
             return "this-is-not-a-valid-path.yml"

@@ -24,4 +24,3 @@ def test_mock_config():
 
     # Verifying that the original value is in config.app.api_key
     assert config.app.api_key == mock_default_config["app"]["api_key"]
-
