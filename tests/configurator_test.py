@@ -132,7 +132,7 @@ def test_load_logging_config_with_custom_handler():
         def emit(self, record):
             print(record)  # noqa: T201
 
-    with mock_config_file(mock_default_config):
+    with mock_config_file():
         opset_config = Config("fake-tool", MockConfig, "project.config", setup_logging=False)
         logger = load_logging_config(opset_config.config.logging, custom_handlers=[CustomHandler()])
         assert len(logger.handlers) == 2
@@ -198,6 +198,15 @@ def test_get_dict_item_from_path():
     d = {"a": {"b": "1"}}
     assert Config._get_dict_item_from_path(d, ["a"]) == {"b": "1"}
     assert Config._get_dict_item_from_path(d, ["a", "b"]) == "1"
+
+
+def test_setup_unit_test():
+    with mock_config_file():
+        opset_config = Config("fake-tool", MockConfig, "project.config")
+
+        opset_config.setup_unit_test({"app": {"api_key": "setup unit"}})
+
+        assert opset_config.config.app.api_key == "setup unit"
 
 
 def test_json_format() -> None:
