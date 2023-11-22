@@ -66,7 +66,7 @@ class OpsetSettingsBaseModel(BaseModel):
         return values
 
     @staticmethod
-    def _convert_type(value: str) -> str | bool | int | float | dict | list:
+    def _convert_type(value: str) -> str | bool | dict | list:
         if value.lower() in ["y", "yes", "t", "true"]:
             return True
 
@@ -75,7 +75,7 @@ class OpsetSettingsBaseModel(BaseModel):
 
         if isinstance(value, str) and (value.startswith("{") or value.startswith("[")):
             try:
-                return typing.cast(str | bool | int | float | dict | list, json.loads(value))
+                return typing.cast(dict | list, json.loads(value))
             except json.JSONDecodeError:
                 pass
 
