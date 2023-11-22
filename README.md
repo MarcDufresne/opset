@@ -1,6 +1,6 @@
 # Opset
 
-[![Coverage Status](https://coveralls.io/repos/github/ElementAI/opset/badge.svg)](https://coveralls.io/github/ElementAI/opset)
+[![Coverage Status](https://coveralls.io/repos/github/MarcDufresne/opset/badge.svg)](https://coveralls.io/github/MarcDufresne/opset)
 
 A library for simplifying the configuration of Python applications at all stages of deployment.
 
@@ -9,8 +9,8 @@ The general principle of Opset is that you want to hold your secrets and manage 
 configuration files when doing local development and via environment variables when your app is deployed. It is however
 possible to also handle local development through environment variables if the developer sees fit.
 
-With Opset you define everything that can be tweaked with your application in one specific
-file (`default.yml`). This way the developers and integrators working with your code will know exactly what setting they
+With Opset you define everything that can be tweaked with your application in
+one Pydantic model. This way the developers and integrators working with your code will know exactly what setting they
 can change on your code base. You can then overwrite the default config with a local config stored in a file called
 `local.yml`, this file is aimed to be used for local development by your developers and let them easily manage a
 configuration file that fits their development need. Finally, you can also have environment variables that have a
@@ -23,53 +23,43 @@ This library is available on PyPI under the name Opset. You can install with pip
 # Table of Contents
 
 1. [Lexicon](#lexicon)
-1. [Architecture Overview](#architecture-overview)
+2. [Architecture Overview](#architecture-overview)
     1. [Loading the config for unit tests](#loading-the-config-for-unit-tests)
-    1. [Safeguards](#safeguards)
-        1. [Settings not declared in default.yml are not loaded](#settings-not-declared-in-defaultyml-are-not-loaded)
-        1. [Forcing all default settings to have values](#forcing-all-default-settings-to-have-values)
-1. [Usage Guide](#usage-guide)
+3. [Usage Guide](#usage-guide)
     1. [Making the difference between null and empty](#making-the-difference-between-null-and-empty)
-1. [Example of Usage](#example-of-usage)
-    1. [Opset + Environment Variables](#Opset--environment-variables)
-    1. [Opset + Google Cloud Secret Manager](#Opset--google-cloud-secret-manager)
-    1. [Naming your config sections](#naming-your-config-sections)
-    1. [Controlling your entry points](#controlling-your-entry-points)
-1. [Example Configuration file](#example-configuration-file)
+    2. [Opset + Google Cloud Secret Manager](#Opset--google-cloud-secret-manager)
+    3. [Naming your config sections](#naming-your-config-sections)
+    4. [Controlling your entry points](#controlling-your-entry-points)
+4. [Example Configuration file](#example-configuration-file)
     1. [default.yml](#defaultyml)
-    1. [local.yml](#localyml)
-    1. [unit_test.yml](#unit_testyml)
-    1. [Example Logging Configuration values](#example-logging-configuration-values)
-    1. [Log Processors](#log-processors)
-1. [Support for unit tests](#support-for-unit-tests)
+    2. [local.yml](#localyml)
+    3. [unit_test.yml](#unit_testyml)
+    4. [Example Logging Configuration values](#example-logging-configuration-values)
+    5. [Log Processors](#log-processors)
+5. [Support for unit tests](#support-for-unit-tests)
     1. [setup_unit_test_config](#setup_unit_test_config)
-        1. [Usage example of setup_unit_test_config](#usage-example-of-setup_unit_test_config)
-    1. [mock_config](#mock_config)
-        1. [Usage example of mock_config](#usage-example-of-mock_config)
-1. [Contributing and getting set up for local development](#contributing-and-getting-set-up-for-local-development)
+    2. [mock_config](#mock_config)
+6. [Contributing and getting set up for local development](#contributing-and-getting-set-up-for-local-development)
 
 ## Lexicon
 
-| Term | Definition |
-|--- | --- |
-| config |	A configuration file (format: YAML). |
-| section	| A section within a configuration file, a section tend to group different settings together under a logical block. For example a section named redis would encompass all settings related specifically to redis. |
-| setting	| A key within a section in a configuration file. A value is associated with a key and querying the config for a setting within a section will return the value associated with it. |
-
-![Lexicon](https://github.com/ElementAI/opset/raw/master/doc/lexicon.png)
+| Term     | Definition                                                                                                                                                                                                      |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| config   | The config Pydantic model or a configuration file (format: YAML).                                                                                                                                               |
+| section	 | A section within a configuration file, a section tend to group different settings together under a logical block. For example a section named redis would encompass all settings related specifically to redis. |
+| setting	 | A key within a section in a configuration file. A value is associated with a key and querying the config for a setting within a section will return the value associated with it.                               |
 
 ## Architecture Overview
 
 There are three possible config files
 
-| Config Name | Purpose |
-| --- | --- |
-| default.yml | This is the base config, `default.yml` needs to have the declaration of all sections and settings. |
-| local.yml | This is a local config that overwrites the default config, this file is not committed to the repository and is meant to be used in a local development environment. |
-| unit_test.yml | This is a local config that overwrites the default config during unit tests, this file is not committed to the repository and is meant to be used in a local development environment. When the config is initialized for unit tests, if a `unit_test.yml` file is present it will be loaded, otherwise the environment variables will be loaded on top of the default config. |
+| Config Name  | Purpose                                                                                                                                                             |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Config Model | This is the user defined config model based on `OpsetSettingsModel`.                                                                                                |
+| local.yml    | This is a local config that overwrites the default config, this file is not committed to the repository and is meant to be used in a local development environment. |
 
-The content of the default config is loaded first, and if any settings are redefined in `local.yml`, the values from
-`default.yml` are overwritten by `local.yml`.
+The content of the default config is loaded first, and if any settings are redefined in `local.yml`, the default values
+from the model are overwritten by `local.yml`.
 
 Environment variables will apply after the `local.yml` overwrite of the config settings if they have a matching name. To
 do so, the environment variable must be named in the following way:
@@ -86,101 +76,44 @@ It is also possible to have nested sections, so following the example above, if 
 
 > `MY_SMALL_PROJECT_API_WEATHER_HOST`
 
-![Order](https://github.com/ElementAI/opset/raw/master/doc/setup_config_overwrite_order.png)
-
-### Loading the config for unit tests
-
-Opset provides a specific function to load the config when performing unit testing that provides the
-developer with some additional tool to better handle the reality of unit testing. When initializing the config for
-unit tests, the content of the default config is loaded first, and if the `unit_test.yml` file is present and has
-values, the values from `default.yml` are overwritten by `unit_test.yml`. Then the values from the environment variables
-apply and if you need some config values to be specific to your unit tests you have the option to pass config values
-when loading the unit tests that will overwrite all other sources.
-
-![Order](https://github.com/ElementAI/opset/raw/master/doc/setup_config_unit_test_overwrite_order.png)
-
-### Safeguards
-
-There are two safeguards in the code to try to prevent developer mistakes.
-
-#### Settings not declared in `default.yml` are not loaded
-
-Your `default.yml` is what defines what can be tweaked in your application, it is made to be the one place to look at if
-you are wondering what can be changed in the configuration of your application.
-
-When loading the configuration a warning will be raised if a setting is detected from the local config, environment
-variables or unit tests values that is not present in `default.yml`. This means that if your `local.yml`
-config looks like this:
-
-```
-app:
-  host: 127.0.0.1
-  port: 7777
-  ham_level: 7
-  api_key: 332d5c3e-a7a3-41db-aa5c-c0dfbac8f3d2
-```
-
-And your default config looks like this:
-
-```
-app:
-  host: 127.0.0.1
-  port: 7777
-  debug: False
-  api_key: null
-```
-
-A warning will be issued when the config is loaded because the setting `ham_level` from the section `app` is not known to
-the default config. The setting and value of `ham_level` will not be loaded in the config and will not be usable in the
-application if it's not present in `default.yml`. As per the example above, you are not forced to set a value for
-settings in the default config (see `api_key`), but the setting needs to be there.
-
-#### Forcing all default settings to have values
-
-There is a special flag called `critical_settings` that is passed to the function `setup_config` from the module.
-This flag is set to `True` by default and will make Opset raise an error if there is no
-value defined for a setting in `default.yml` after having applied all possible configuration files and environment
-variables.
-
 ## Usage Guide
 
-You interact with the library through the function `opset.setup_config` to set up the config and with the
-singleton object `opset.config` to read config values. Optionally Opset can also manage your
-application logging via the function `opset.load_logging_config` or the argument `setup_logging` from the
-function `opset.setup_config`. The `opset.config` object is a singleton which means that no matter where
-it is accessed in the code and the loading order, as long as it has been initiated with `opset.setup_config` it
-will hold the same configuration values in all of your application.
+To create a new configuration you need to first implement a pydantic model based on `OpsetSettingsModel` to represent
+your configuration. It can contain sub models all based on `OpsetSettingsModel`. Then you can initialize your
+configuration by instantiating the `Config` class. Your config object will be available in the `config` attribute of the
+opset config.
 
-The library expects that your project will contain [YAML](https://yaml.org/) files named `default.yml` and
-(optionally) `local.yml` and `unit_test.yml`. You will be able to point to the location of those config files when
-invoking `opset.setup_config` as the second positional argument. The file `default.yml` should be committed and follow your
-project and should not contain any secrets. The files `local.yml` and `unit_test.yml` should be added to your
-`.gitignore` to avoid having them committed by accident as those files can contain secrets.
+Opset will also check for `local.yml`. The location needs to be specified when instantiating the `Config` object. Your
+`local.yml` should be added to `.gitignore`.
 
-The `opset.setup_config` function will handle everything from reading the YAML file containing your project's config values,
-to loading them into your environment being mindful not to overwrite ENV variables already present. It needs to be
-passed the name of your application along with the python style path (eg. `module.submodule`) to where the
-`default.yml`, `local.yml` or `unit_test.yml` files are located in the project.
+A basic Opset setup will look like this:
 
-To initialize the configuration, use the function `opset.setup_config` and that's it. After that you can import
-the variable `opset.config` from the module to use the config. You can safely import the config variable before
-initializing it because access to the config object attributes is dynamic. It is important to note that the config is
-built to be read-only, it gets populated when `opset.setup_config` and from then on you just read the values from
-the config as needed in your implementation.
+```python
+from opset import OpsetSettingsMainModel, Config
 
-The function setup_config takes the following arguments:
 
-| Parameter | Description | Default value | Example
-| --- | --- | --- | --- |
-| `app_name` | The name of the application, usually the name of the repo. Ex: `myproject-example`. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
-| `config_path` | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo. | | `tasks.config` |
-| `critical_settings` | A boolean to specify how null settings in `default.yml` should be handled. If set to `True`, the function will raise an exception when a key in `default.yml` is not defined in `local.yml` or in an environment variable. | `True` | `True` |
-| `setup_logging` | Whether the logging config should be loaded immediately after the config has been loaded. Default to `True`. | `True` | `True` |
+class MyConfig(OpsetSettingsMainModel):
+    host: str
+    port: int = 8080
+
+
+config = Config("my-app", MyConfig, "my_app.config").config
+```
+You would then import your new `config` variable where needed in your app. 
+
+The `Config` class takes the following arguments:
+
+| Parameter           | Description                                                                                                                                                                                                                                   | Default value | Example             |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|---------------------|
+| `app_name`          | The name of the application, usually the name of the repo. Ex: `myproject-example`. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. |               | `myproject-example` |
+| `config_model`      | Your implementation of `OpsetSettingsModel` that defines your configuration.                                                                                                                                                                  |
+| `config_path`       | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo.                    |               | `tasks.config`      |
+| `setup_logging`     | Whether the logging config should be loaded immediately after the config has been loaded. Your configuration modell will need to have the logging attribute of type `OpsetLoggingConfig` for this to work.  Default to `True`.                | `True`        | `True`              |
 
 ### Making the difference between null and empty
 
 The configuration is stored in YAML and follows the YAML standard. As such, it makes a distinction between `null` keys
-and empty keys. 
+and empty keys.
 
 ```
 app:
@@ -193,102 +126,27 @@ app:
 
 ### Controlling your entry points
 
-The config object is initiated once you call the function `opset.setup_config`, before that, trying to get read
+The config object is initiated once you create the `Config` object, before that, trying to get read
 a value from the config will throw an exception. It is very important to have a good idea of what the entry points
-are in your application and to call `opset.setup_config` as early as possible in your application to avoid issues.
+are in your application and to create your `Config` object as early as possible in your application to avoid issues.
 
-To avoid duplicating calls to `opset.setup_config` we recommend you add the call to `opset.setup_config`
-in a function that is called whenever you need to start your application, you can then safely call this function
-whenever you create a new entry points in your application.
-
-Be mindful about reading values from the config object at module level. If you need to import modules before you can
-call `opset.setup_config` and one of those modules has a module-level call to read the config, Opset
-will raise an error when importing because the code will be read at import time and the config will not have been
-initiated.
-
-For a more concrete example, avoid doing something like this:
-
-```python
-from opset import config
-
-FULL_DB_URI = f"{config.db.scheme}{config.db.user}:{config.db.password}@{config.db.host}:{config.db.port}"
-```
-
-And do something like this instead:
-
-```python
-from opset import config
-
-def get_full_db_uri():
-    return f"{config.db.scheme}{config.db.user}:{config.db.password}@{config.db.host}:{config.db.port}"
-```
-
-Last thing, remember that it is safe to import the config object before the config has been initiated. The config
-object is a singleton and will be populated after `opset.setup_config` has been called, even if it was imported
-first.
-
-## Example Of Usage
-
-Here is a little example of how to use the opset features in a simple Flask app.
-
-```python
-from flask import Flask, jsonify
-from opset import config, setup_config
-
-
-setup_config("myproject-example", "myproject-example.config")
- 
-app = Flask(config.app.name)
-
-@app.route("/")
-def hello():
-    return jsonify({"Hello and welcome to": config.app.welcome_message})
-```
-
-This example will leverage the config values stored under the `myproject-example/config` folder, with the following content:
-
-```yaml
-app:
-  welcome_message: Hi lads
-```
-
-### Opset + Environment Variables
-
-One of the features of Opset is how it handles the interaction between the config values in your projects' YAML
-files and the values that might already be set in your environment. Values already in your environment have higher
-priority and will overwrite any values in your config files. In order to compare against the environment variables,
-Opset builds the names for config values using `<APP_NAME>_<SECTION_NAME>_<SETTING_NAME>` as a template.
-This means that if your environment contains the value `MYPROJECT_EXAMPLE_DATABASE_HOST`, and your application is named
-`myproject-example` it will overwrite the value of the database host from the following config file:
-
-```yaml
-database:
-  host: 89.22.102.02
-```
-
-The conversion to python types from the YAML config file is handled by `pyyaml` but for environment variables
-Opset does its own conversion depending on the value:
-
-- `true`, `t`, `yes`, `y` (case-insensitive) will be converted to a `True` `bool`
-- `false`, `f`, `no`, `n` (case-insensitive) will be converted to a `False` `bool`
-- Any number-only string will be converted to an `int` if they have no decimals and `float` if they do
-- A JSON-valid array will be converted to a `list`
-- A JSON-valid object will be converted to a `dict`
-- Any other value will remain a `str`
-
-NOTE: Be sure to respect JSON conventions when defining arrays and objects, use lower-case booleans, double quotes, etc.
+You cannot instantiate `Config` more than one time, so make sure the code handling your configuration is only ran once.
 
 ### Opset + Google Cloud Secret Manager
+
 You need to install opset with the extras `gcp` in order to use this feature.
 
 Opset is able to fetch secrets from Google Cloud Secret Manager.
-You need to be authenticated using [gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk) or setting up a service account.
+You need to be authenticated using [gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk) or setting up a service
+account.
 
 The config value should respect on of these formats
- - `opset+gcp://projects/<my_project>/secrets/<my_secret>`
- - `opset+gcp://projects/<my_project>/secrets/<my_secret>/versions/<my_version>`
+
+- `opset+gcp://projects/<my_project>/secrets/<my_secret>`
+- `opset+gcp://projects/<my_project>/secrets/<my_secret>/versions/<my_version>`
 
 Example
+
 ```yaml
 database:
   host: opset+gcp://projects/dev-3423/secrets/db_host
@@ -296,41 +154,22 @@ database:
 
 It is also possible to create a file `.opset.yml` in your project to create mapping for project name.
 For instance, with the following config.
+
 ```yaml
 gcp_project_mapping:
   dev: dev-3423
 ```
+
 Opset will be able to map the project name like this.
 
 `opset+gcp://projects/dev/secrets/db_host -> opset+gcp://projects/dev-3423/secrets/db_host`
 
 ## Example Configuration file
 
-### default.yml
-
-Declare in the `default.yml` file all the settings that the app will require. For each of the keys,
-you can define a default value. If there is no sensible defaults for a setting, leave it blank (which
-is equivalent to setting it to `null`).
-
-As a rule of thumb, a default value should be equally good and safe for local, staging or prod environments.
-For example, setting `app.debug` above to `True` would be an error as it may cause prod to run with debug
-messages enabled if prod is not overriding it. The opposite is also true. A default value pointing to a production
-system can easily wipe or overload it during testing if tests do not overwrite the defaults properly. When in doubt,
-prefer a `null` value.
-
-Also, secrets should _NEVER_ be added to this file.
-
 ### local.yml
 
 This file is typically defined by developers for their own development and local usage of the app. This file
 may contain secrets and as such it must be added to the `.gitignore` file.
-
-### unit_test.yml
-
-This file is used to handle configuration values when running unit tests locally by developers. The content of this
-file is only used when initiating the config through `opset.setup_unit_test_config` and is discussed in more
-details in the section of the documentation dedicated to unit testing. This file may contain secrets and as such it
-must be added to the `.gitignore` file.
 
 ### Example Logging Configuration values
 
@@ -346,7 +185,7 @@ logging:
   min_level: DEBUG  # Minimum level to display log for
   colors: False  # Use colors for log display, defaults to False
   disable_processors: False  # Disables log processors (additional info at the end of the log record)
-  logger_overrides:  # overwrite min log level of third party loggers
+  logger_overrides: # overwrite min log level of third party loggers
     googleapiclient: ERROR
   json_format: False  # Whether the logs should be formatted as json. Defaults to False.
 ```
@@ -358,15 +197,21 @@ can be useful to add a request ID, or the hostname of the machine to all your lo
 anything to your logging calls.
 
 To use this simply define any processors you want by inheriting from the `BaseProcessor` class of `opset`
-and pass an instance to the `load_logging_config` call:
+and pass an instance to the `load_logging_config` on your opset config call:
 
 ```python
 import logging
 
 from flask import Flask
-from opset import BaseProcessor, load_logging_config, setup_config
+from opset import BaseProcessor, Config, OpsetSettingsMainModel, OpsetLoggingConfig, load_logging_config
 
 from my_app.request_context import get_request_id
+
+
+class MyConfig(OpsetSettingsMainModel):
+    host: str
+    port: int = 8080
+    logging: OpsetLoggingConfig
 
 
 class RequestContextProcessor(BaseProcessor):
@@ -375,10 +220,11 @@ class RequestContextProcessor(BaseProcessor):
         return event_dict
 
 
-setup_config("my_app", "my_app.config", setup_logging=False)  # Defer the logging setup
-load_logging_config(custom_processors=[RequestContextProcessor()])  # Pass your custom processors
+config = Config("my_app", MyConfig, "my_app.config", setup_logging=False).config  # Defer the logging setup
+load_logging_config(config.logging, custom_processors=[RequestContextProcessor()])  # Pass your custom processors
 
 app = Flask(__name__)
+
 
 @app.route("/")
 def root():
@@ -407,9 +253,16 @@ the `emit` method, and pass an instance to the `load_logging_config` call:
 import logging
 
 from flask import Flask
-from opset import load_logging_config, setup_config
+from opset import Config, OpsetSettingsMainModel, OpsetLoggingConfig, load_logging_config
 from logging import Handler
 import json
+
+
+class MyConfig(OpsetSettingsMainModel):
+    host: str
+    port: int = 8080
+    logging: OpsetLoggingConfig
+
 
 class LocalFileHandler(Handler):
     def __init__(self):
@@ -423,10 +276,11 @@ class LocalFileHandler(Handler):
             json.dump(record.msg, fp)
 
 
-setup_config("my_app", "my_app.config", setup_logging=False)  # Defer the logging setup
-load_logging_config(custom_handlers=[LocalFileHandler()])  # Pass your custom handlers
+config = Config("my_app", MyConfig, "my_app.config", setup_logging=False).config  # Defer the logging setup
+load_logging_config(config.logging, custom_handlers=[LocalFileHandler()])  # Pass your custom handlers
 
 app = Flask(__name__)
+
 
 @app.route("/")
 def root():
@@ -445,114 +299,14 @@ application configuration during unit testing.
 
 ### setup_unit_test_config
 
-The function `opset.setup_unit_test_config` is made to replace `opset.setup_config` when running unit
-tests. Remember to control your entry points and call this function as early as possible when running the unit tests.
-If you are using pytest it is recommended to add it to a
-[conftest.py](https://docs.pytest.org/en/2.7.3/plugins.html?highlight=re#conftest-py-plugins) module set at the root of
-your unit tests package.
-
-`opset.setup_unit_test_config` works in the same way as `opset.setup_config` but will load the YAML
-config file `unit_test.yml` if present instead of `local.yml`. It also accepts an additional parameter called
-`config_values` that is a dictionary representation of a config file that will have the highest priority when doing
-overwrites.
-
-| Parameter | Description | Default value | Example
-| --- | --- | --- | --- |
-| `app_name` | The name of the application, usually the name of the repo. Ex: myproject-example. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. | | `myproject-example` |
-| `config_path` | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo. | | `tasks.config` |
-| `config_values` | A dictionary mimicking the structure of the config files, to be applied as an overwrite on top of default + unit_test config (if available) and env variables. | | `{"app": {"debug": False}}` |
-
-#### Usage example of setup_unit_test_config
-
-In `default.yml`:
-
-```yaml
-db:
-  user: 
-  password:
-  name: staging
-```
-
-In `unit_test.yml`:
-
-```yaml
-db:
-  user: serge
-  password: mystrongpassword
-```
-
-In the `conftest.py` module a the root of your unit tests package:
-
-```python
-from opset import config, setup_unit_test_config
-
-setup_unit_test_config("myproject-example", "myproject-example.config", config_values={"db": {"name": "test"}})
-```
-
-After running `opset.setup_unit_test_config` the config will hold the following values:
-
-```
->>> config.db.user
-'serge'
-
->>> config.db.password
-'mystrongpassword'
-
->>> config.db.name
-'test' 
-```
+To setup your config for unit tests you will want to import your opset_config object and call `setup_unit_test` on it. 
+This function takes a dictionary of all the configuration you want to overwrite. This call should happen only once in 
+your unit test setup.
 
 ### mock_config
 
-The function `opset.mock_config` is a context manager that lets you overwrite config values from the config
-object for the time of a unit tests. If your unit test requires for the time of a test to have your config hold a
-special temporary value, `opset.mock_config` is there for you. It takes the parameter `config_values` which
-is identical to what `opset.setup_unit_test_config` uses.
-
-Your config object will be duplicated for the duration of your context manager and overwritten by the values you send
-to the parameter `config_values`. Once you exit the context manager the copy of the config disappears and your
-application resumes with the config object being in the same state as it was before entering the context manager.
-
-#### Usage example of mock_config
-
-In your module to be tested:
-
-```python
-from opset import config
-
-def is_admin(user_name: str) -> bool:
-    return user_name in config.app.admin_list
-```
-
-In your `default.yml`:
-```yaml
-app:
-  admin_list: 
-```
-
-In your `unit_test.yml`:
-```yaml
-app:
-  admin_list:
-    - "jotaro kujo"
-```
-
-In your unit test module:
-```python
-from opset import mock_config
-
-from my_package.my_module import is_admin
-
-
-def test_is_admin():
-    # Test true
-    assert is_admin("jotaro kujo")
-    
-    # Test false
-    with mock_config(config_values={"app": {"admin_list": []}}):
-        assert not is_admin("jotaro kujo")
-```
-
+The `mock_config` contextmanager on the opset config is used to temporarily overwrite your configuration. Like 
+`setup_unit_test` you pass a dictionary of the configurations you want to overwrite.
 
 ## Contributing and getting set up for local development
 
