@@ -85,13 +85,12 @@ class OpsetSettingsBaseModel(BaseModel):
 class OpsetSettingsMainModel(OpsetSettingsBaseModel):
     _opset: "Config"
 
-    def __init__(self, **data: dict[str, Any]):
-        opset = typing.cast(Config, data.pop("_opset"))
+    def __init__(self, _opset: "Config", **data: dict[str, Any]) -> None:
         super().__init__(**data)
-        self._opset = opset
+        self._opset = _opset
 
     @property
-    def opset(self):
+    def opset(self) -> "Config":
         return self._opset
 
 
