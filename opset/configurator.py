@@ -352,19 +352,11 @@ class Config(Generic[OpsetSettingsMainModelType]):
 
         return keys
 
-    def _environment_override(
-        self, current_config: dict, model_fields: dict[str, FieldInfo], critical_settings: bool = False
-    ) -> None:
+    def _environment_override(self, current_config: dict, model_fields: dict[str, FieldInfo]) -> None:
         """Override values in the config with environment variables.
 
         Args:
             current_config: The config that should be overridden with values from environment variables.
-            critical_settings: If True, after overriding values, raise a
-                               `CriticalSettingException` for any missing value.
-
-        Raises:
-            CriticalSettingException: If any value is missing in the config after overriding them,
-                                      but only if `critical_settings` is `True`
         """
         env_vars_overrides = self._get_possible_env_var_overrides(model_fields, prefix=self.__formatted_name)
         possible_names = []
