@@ -131,7 +131,7 @@ class OpsetNotInitializedError(ValueError):
 
 
 def _should_validate_config() -> bool:
-    return os.getenv(OPSET_UNIT_TEST_FLAG) is not None or os.getenv(OPSET_SKIP_VALIDATION_FLAG) is not None
+    return os.getenv(OPSET_UNIT_TEST_FLAG) is None and os.getenv(OPSET_SKIP_VALIDATION_FLAG) is None
 
 
 class Config(Generic[OpsetSettingsMainModelType]):
@@ -157,7 +157,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
 
         raw_model: OpsetSettingsMainModelType = config_model.model_construct(_opset=self)
 
-        if not _should_validate_config():
+        if _should_validate_config():
             local_config = self._read_yaml_config("local.yml", raise_not_found=False)
 
             declared_config = self._merge_configs(raw_model.model_dump(), local_config)
