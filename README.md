@@ -89,16 +89,15 @@ Opset will also check for `local.yml`. The location needs to be specified when i
 A basic Opset setup will look like this:
 
 ```python
-from opset import OpsetSettingsModel, Config
+from opset import OpsetSettingsBaseModel, Config
 
 
-class MyConfig(OpsetSettingsModel):
+class MyConfig(OpsetSettingsBaseModel):
     host: str
     port: int = 8080
 
 
-opset_config = Config("my-app", MyConfig, "my_app.config")
-config =  opset_config.config
+config = Config("my-app", MyConfig, "my_app.config").config
 ```
 You would then import your new `config` variable where needed in your app. 
 
@@ -204,23 +203,25 @@ and pass an instance to the `load_logging_config` on your opset config call:
 import logging
 
 from flask import Flask
-from opset import BaseProcessor, Config, OpsetSettingsModel, OpsetLoggingConfig
+from opset import BaseProcessor, Config, OpsetSettingsBaseModel, OpsetLoggingConfig, load_logging_config
 
 from my_app.request_context import get_request_id
 
-class MyConfig(OpsetSettingsModel):
-   host: str
-   port: int = 8080
-   logging: OpsetLoggingConfig
-   
+
+class MyConfig(OpsetSettingsBaseModel):
+    host: str
+    port: int = 8080
+    logging: OpsetLoggingConfig
+
+
 class RequestContextProcessor(BaseProcessor):
     def __call__(self, logger, name, event_dict):
         event_dict["request_id"] = get_request_id()
         return event_dict
 
 
-opset_config = Config("my_app", MyConfig, "my_app.config", setup_logging=False)  # Defer the logging setup
-opset_config.load_logging_config(custom_processors=[RequestContextProcessor()])  # Pass your custom processors
+config = Config("my_app", MyConfig, "my_app.config", setup_logging=False).config  # Defer the logging setup
+load_logging_config(config.logging, custom_processors=[RequestContextProcessor()])  # Pass your custom processors
 
 app = Flask(__name__)
 
@@ -252,14 +253,16 @@ the `emit` method, and pass an instance to the `load_logging_config` call:
 import logging
 
 from flask import Flask
-from opset import Config, OpsetSettingsModel, OpsetLoggingConfig
+from opset import Config, OpsetSettingsBaseModel, OpsetLoggingConfig, load_logging_config
 from logging import Handler
 import json
 
-class MyConfig(OpsetSettingsModel):
-    host: str 
+
+class MyConfig(OpsetSettingsBaseModel):
+    host: str
     port: int = 8080
     logging: OpsetLoggingConfig
+
 
 class LocalFileHandler(Handler):
     def __init__(self):
@@ -273,8 +276,8 @@ class LocalFileHandler(Handler):
             json.dump(record.msg, fp)
 
 
-opset_config = Config("my_app",MyConfig, "my_app.config", setup_logging=False)  # Defer the logging setup
-opset_config.load_logging_config(custom_handlers=[LocalFileHandler()])  # Pass your custom handlers
+config = Config("my_app", MyConfig, "my_app.config", setup_logging=False).config  # Defer the logging setup
+load_logging_config(config.logging, custom_handlers=[LocalFileHandler()])  # Pass your custom handlers
 
 app = Flask(__name__)
 

@@ -19,7 +19,7 @@ def test_mock_config():
         return config.app.api_key
 
     # Verifying that mock_config will change the value of config.app.api_key
-    with opset_config.mock_config({"app": {"api_key": overwrite_api_key_value}}):
+    with config.opset.mock_config({"app": {"api_key": overwrite_api_key_value}}):
         assert external_function() == overwrite_api_key_value
 
     # Verifying that the original value is in config.app.api_key

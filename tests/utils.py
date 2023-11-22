@@ -6,7 +6,8 @@ import os
 from functools import wraps
 from typing import Any
 
-from opset import OpsetLoggingConfig, OpsetSettingsModel
+from opset import OpsetLoggingConfig, OpsetSettingsBaseModel
+from opset.configurator import OpsetSettingsMainModel
 
 
 def remove_env_vars(app_name: str):
@@ -35,7 +36,7 @@ def clear_env_vars(fn):
     return wrapper
 
 
-class MockAppConfig(OpsetSettingsModel):
+class MockAppConfig(OpsetSettingsBaseModel):
     api_key: str = "my_api_key"
     secret_key: str = "my_secret_key"
     no_default: str | None = None
@@ -43,23 +44,23 @@ class MockAppConfig(OpsetSettingsModel):
     d: dict[str, Any] = {}
 
 
-class Mocklevel3Config(OpsetSettingsModel):
+class Mocklevel3Config(OpsetSettingsBaseModel):
     level4: str = "value"
 
 
-class MockLevel2Config(OpsetSettingsModel):
+class MockLevel2Config(OpsetSettingsBaseModel):
     level3: Mocklevel3Config
 
 
-class MockLevel1Config(OpsetSettingsModel):
+class MockLevel1Config(OpsetSettingsBaseModel):
     level2: MockLevel2Config = MockLevel2Config()
 
 
-class MockConfig(OpsetSettingsModel):
+class MockConfig(OpsetSettingsMainModel):
     timeout: int = 20
     app: MockAppConfig
     logging: OpsetLoggingConfig
     level1: MockLevel1Config
 
 
-mock_default_config = MockConfig().model_dump()
+mock_default_config = MockConfig(_opset=None).model_dump()

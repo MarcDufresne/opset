@@ -14,7 +14,7 @@ import structlog
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from opset import OpsetSettingsModel
+from opset import OpsetSettingsBaseModel
 from opset.configurator import Config, OpsetConfigAlreadyInitializedError, get_opset_config, load_logging_config
 from opset.utils import mock_config_file
 from tests.utils import MockConfig, clear_env_vars, mock_default_config
@@ -186,12 +186,12 @@ def test_setup_config_unit_test_with_test_config():
     ),
 )
 def test_convert_type(test, expected):
-    assert OpsetSettingsModel._convert_type(test) == expected
+    assert OpsetSettingsBaseModel._convert_type(test) == expected
 
 
 @pytest.mark.parametrize("test", ('["test"', "HELLO", "nope", "test2000", '{"test"}'))
 def test_convert_type_fallback(test):
-    assert OpsetSettingsModel._convert_type(test) == test
+    assert OpsetSettingsBaseModel._convert_type(test) == test
 
 
 def test_get_dict_item_from_path():

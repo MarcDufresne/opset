@@ -28,12 +28,13 @@ from opset.gcp_secret_handler import (
 )
 
 OPSET_CONFIG_FILENAME = ".opset.yml"
-OpsetSettingsModelType = TypeVar("OpsetSettingsModelType", bound="OpsetSettingsModel")
+OPSET_UNIT_TEST_FLAG = "UNIT_TEST_FLAG"
+OpsetSettingsMainModelType = TypeVar("OpsetSettingsMainModelType", bound="OpsetSettingsMainModel")
 
 logger = logging.getLogger(__name__)
 
 
-class OpsetSettingsModel(BaseModel):
+class OpsetSettingsBaseModel(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def parse_values(cls, values: dict[str, Any]) -> dict[str, Any]:
@@ -48,7 +49,7 @@ class OpsetSettingsModel(BaseModel):
 
             else:
                 field_type = typing.get_origin(field_info.annotation) or field_info.annotation
-                if inspect.isclass(field_type) and issubclass(field_type, OpsetSettingsModel):
+                if inspect.isclass(field_type) and issubclass(field_type, OpsetSettingsBaseModel):
                     if (default := field_info.get_default()) and default != PydanticUndefined:
                         values[k] = default
                     else:
@@ -81,7 +82,20 @@ class OpsetSettingsModel(BaseModel):
         return value
 
 
-class OpsetLoggingConfig(OpsetSettingsModel):
+class OpsetSettingsMainModel(OpsetSettingsBaseModel):
+    _opset: "Config"
+
+    def __init__(self, **data: dict[str, Any]):
+        opset = typing.cast(Config, data.pop("_opset"))
+        super().__init__(**data)
+        self._opset = opset
+
+    @property
+    def opset(self):
+        return self._opset
+
+
+class OpsetLoggingConfig(OpsetSettingsBaseModel):
     date_format: str = "ISO"
     use_utc: bool = True
     min_level: str = "INFO"
@@ -101,7 +115,7 @@ class BackwardConfig:
         except AttributeError:
             raise AttributeError(f"Section [{item}] not found in the config.")
 
-    def set_config(self, new_config: OpsetSettingsModelType) -> None:
+    def set_config(self, new_config: OpsetSettingsMainModelType) -> None:
         self._config = munchify(new_config.model_dump())
 
 
@@ -116,13 +130,17 @@ class OpsetNotInitializedError(ValueError):
     pass
 
 
-class Config(Generic[OpsetSettingsModelType]):
-    _config: OpsetSettingsModelType | None = None
+def _check_in_unit_test() -> bool:
+    return os.getenv(OPSET_UNIT_TEST_FLAG) is not None
+
+
+class Config(Generic[OpsetSettingsMainModelType]):
+    _config: OpsetSettingsMainModelType | None = None
 
     def __init__(
         self,
         app_name: str,
-        config_model: typing.Type[OpsetSettingsModelType],
+        config_model: typing.Type[OpsetSettingsMainModelType],
         config_path: str,
         setup_logging: bool = False,
         config_overrides: dict[str, Any] | None = None,
@@ -137,27 +155,32 @@ class Config(Generic[OpsetSettingsModelType]):
 
         logger.info(f"Initializing config for {self.app_name}")
 
-        raw_model: OpsetSettingsModelType = config_model.model_construct()
-        local_config = self._read_yaml_config("local.yml", raise_not_found=False)
+        raw_model: OpsetSettingsMainModelType = config_model.model_construct(_opset=self)
 
-        declared_config = self._merge_configs(raw_model.model_dump(), local_config)
+        if not _check_in_unit_test():
+            local_config = self._read_yaml_config("local.yml", raise_not_found=False)
 
-        self._environment_override(
-            declared_config,
-            raw_model.model_fields,
-        )
+            declared_config = self._merge_configs(raw_model.model_dump(), local_config)
 
-        if config_overrides:
-            declared_config = self._merge_configs(deepcopy(declared_config), config_overrides)
+            self._environment_override(
+                declared_config,
+                raw_model.model_fields,
+            )
 
-        self.__set_class_config(config_model(**declared_config))
+            if config_overrides:
+                declared_config = self._merge_configs(deepcopy(declared_config), config_overrides)
+
+            self.__set_class_config(config_model(**declared_config, _opset=self))
+        else:
+            self.__set_class_config(raw_model)
+
         self.__set_global_config()
 
         if self.setup_logging and hasattr(self.config, "logging"):
             load_logging_config(self.config.logging)
 
     @property
-    def config(self) -> OpsetSettingsModelType:
+    def config(self) -> OpsetSettingsMainModelType:
         if not self._config:
             raise OpsetNotInitializedError("OpsetConfig does not have an initialized config")
 
@@ -172,7 +195,7 @@ class Config(Generic[OpsetSettingsModelType]):
         return self.app_name.upper().replace("-", "_") if self.app_name else ""
 
     @classmethod
-    def __set_class_config(cls, internal_config: OpsetSettingsModelType) -> None:
+    def __set_class_config(cls, internal_config: OpsetSettingsMainModelType) -> None:
         cls._config = internal_config
 
     def __str__(self) -> str:
@@ -185,7 +208,7 @@ class Config(Generic[OpsetSettingsModelType]):
 
     @staticmethod
     def _update_pydantic_model_in_place(
-        original_model: OpsetSettingsModelType, updated_model: OpsetSettingsModelType
+        original_model: OpsetSettingsMainModelType, updated_model: OpsetSettingsMainModelType
     ) -> None:
         for f in updated_model.model_fields.keys():
             setattr(original_model, f, getattr(updated_model, f))
@@ -196,7 +219,7 @@ class Config(Generic[OpsetSettingsModelType]):
         declared_config = self._merge_configs(self.config.model_dump(), config_values)
 
         # We update the existing object to not lose any object referenced before mock_config was called
-        new_config = self.config.__class__(**declared_config)
+        new_config = self.config_model(**declared_config, _opset=self)
         self._update_pydantic_model_in_place(self.config, new_config)
 
         self.__set_global_config()
@@ -205,10 +228,10 @@ class Config(Generic[OpsetSettingsModelType]):
         self.__set_global_config()
 
     def setup_unit_test(self, config_values: dict[str, Any]) -> None:
-        declared_config = self._merge_configs(self.config.model_dump(), config_values)
+        declared_config = self._merge_configs(self.config_model.model_construct().model_dump(), config_values)
 
         # We update the existing object to not lose any object referenced before mock_config was called
-        new_config = self.config_model(**declared_config)
+        new_config = self.config_model(**declared_config, _opset=self)
         self._update_pydantic_model_in_place(self.config, new_config)
 
         self.__set_global_config()
@@ -317,7 +340,7 @@ class Config(Generic[OpsetSettingsModelType]):
         keys = []
         for key, field_info in fields.items():
             field_type = typing.get_origin(field_info.annotation) or field_info.annotation
-            if inspect.isclass(field_type) and issubclass(field_type, OpsetSettingsModel):
+            if inspect.isclass(field_type) and issubclass(field_type, OpsetSettingsBaseModel):
                 keys.extend(
                     self._get_possible_env_var_overrides(
                         field_type.model_fields, current_path=current_path + [key], prefix=prefix
