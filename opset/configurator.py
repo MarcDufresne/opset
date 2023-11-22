@@ -350,7 +350,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
                 path_key = [prefix] + path_key
                 keys.append(("_".join(path_key).upper(), current_path + [key]))
 
-        return keys  # [('TEST_STUFF_SUB_CONF_DOM', ['sub_conf', 'dom'])]
+        return keys
 
     def _environment_override(
         self, current_config: dict, model_fields: dict[str, FieldInfo], critical_settings: bool = False

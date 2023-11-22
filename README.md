@@ -89,10 +89,10 @@ Opset will also check for `local.yml`. The location needs to be specified when i
 A basic Opset setup will look like this:
 
 ```python
-from opset import OpsetSettingsBaseModel, Config
+from opset import OpsetSettingsMainModel, Config
 
 
-class MyConfig(OpsetSettingsBaseModel):
+class MyConfig(OpsetSettingsMainModel):
     host: str
     port: int = 8080
 
@@ -203,12 +203,12 @@ and pass an instance to the `load_logging_config` on your opset config call:
 import logging
 
 from flask import Flask
-from opset import BaseProcessor, Config, OpsetSettingsBaseModel, OpsetLoggingConfig, load_logging_config
+from opset import BaseProcessor, Config, OpsetSettingsMainModel, OpsetLoggingConfig, load_logging_config
 
 from my_app.request_context import get_request_id
 
 
-class MyConfig(OpsetSettingsBaseModel):
+class MyConfig(OpsetSettingsMainModel):
     host: str
     port: int = 8080
     logging: OpsetLoggingConfig
@@ -253,12 +253,12 @@ the `emit` method, and pass an instance to the `load_logging_config` call:
 import logging
 
 from flask import Flask
-from opset import Config, OpsetSettingsBaseModel, OpsetLoggingConfig, load_logging_config
+from opset import Config, OpsetSettingsMainModel, OpsetLoggingConfig, load_logging_config
 from logging import Handler
 import json
 
 
-class MyConfig(OpsetSettingsBaseModel):
+class MyConfig(OpsetSettingsMainModel):
     host: str
     port: int = 8080
     logging: OpsetLoggingConfig
