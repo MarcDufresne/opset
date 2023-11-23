@@ -175,7 +175,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
 
         if should_validate and declared_config is not None:
             self.__set_class_config(config_model(**declared_config, _opset=self))
-        else:
+        else:  # pragma: no cover
             if declared_config is not None:
                 raw_model = raw_model.model_copy(update=declared_config)
             self.__set_class_config(raw_model)
