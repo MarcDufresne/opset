@@ -183,6 +183,8 @@ class Config(Generic[OpsetSettingsMainModelType]):
         self.__set_global_config()
 
         if self.setup_logging and hasattr(self.config, "logging"):
+            if not isinstance(self.config.logging, OpsetLoggingConfig) and isinstance(self.config.logging, dict):
+                self.config.logging = OpsetLoggingConfig(**self.config.logging)
             load_logging_config(self.config.logging)
 
     @property
