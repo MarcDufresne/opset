@@ -130,8 +130,8 @@ class OpsetNotInitializedError(ValueError):
     pass
 
 
-def _not_in_test() -> bool:
-    return os.getenv(OPSET_UNIT_TEST_FLAG) is None
+def _in_test() -> bool:
+    return os.getenv(OPSET_UNIT_TEST_FLAG) is not None
 
 
 class Config(Generic[OpsetSettingsMainModelType]):
@@ -159,7 +159,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
 
         declared_config: dict | None = None
         should_validate = False
-        if _not_in_test():
+        if not _in_test():
             local_config = self._read_yaml_config("local.yml", raise_not_found=False)
             declared_config = self._merge_configs(raw_model.model_dump(), local_config)
 
