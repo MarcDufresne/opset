@@ -176,6 +176,8 @@ class Config(Generic[OpsetSettingsMainModelType]):
         if should_validate and declared_config:
             self.__set_class_config(config_model(**declared_config, _opset=self))
         else:
+            if declared_config:
+                raw_model = raw_model.model_copy(update=declared_config)
             self.__set_class_config(raw_model)
 
         self.__set_global_config()
@@ -232,7 +234,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
         self.__set_global_config()
 
     def setup_unit_test(self, config_values: dict[str, Any]) -> None:
-        declared_config = self._merge_configs(self.config_model.model_construct().model_dump(), config_values)
+        declared_config = self._merge_configs(self.config.model_dump(), config_values)
 
         # We update the existing object to not lose any object referenced before mock_config was called
         new_config = self.config_model(**declared_config, _opset=self)
