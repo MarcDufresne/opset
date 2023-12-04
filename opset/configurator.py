@@ -158,7 +158,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
         global _opset_config
         _opset_config = init_opset_config(self.config_path)
 
-        raw_model: OpsetSettingsMainModelType = config_model.model_construct(_opset=self, _config_path=config_path)
+        raw_model: OpsetSettingsMainModelType = config_model.model_construct(_opset=self)
 
         declared_config: dict | None = None
         should_validate = False
@@ -177,7 +177,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
             should_validate = os.getenv(OPSET_SKIP_VALIDATION_FLAG) is None
 
         if should_validate and declared_config is not None:
-            self.__set_class_config(config_model(**declared_config, _opset=self, _config_path=config_path))
+            self.__set_class_config(config_model(**declared_config, _opset=self))
         else:  # pragma: no cover
             if declared_config is not None:
                 raw_model = raw_model.model_copy(update=declared_config)
