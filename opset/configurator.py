@@ -34,6 +34,8 @@ OpsetSettingsMainModelType = TypeVar("OpsetSettingsMainModelType", bound="OpsetS
 
 logger = logging.getLogger(__name__)
 
+_opset_config: dict[str, Any] = {}
+
 
 class OpsetSettingsBaseModel(BaseModel):
     @model_validator(mode="before")
@@ -59,10 +61,8 @@ class OpsetSettingsBaseModel(BaseModel):
         if not is_gcp_available() and unprocessed_gcp_secret_keys:
             raise MissingGcpSecretManagerLibrary()
 
-        opset_gcp_config = get_opset_config()
-
         for k in unprocessed_gcp_secret_keys:
-            values[k] = cls._convert_type(retrieve_gcp_secret_value(values[k], opset_gcp_config))
+            values[k] = cls._convert_type(retrieve_gcp_secret_value(values[k], _opset_config))
 
         return values
 
@@ -154,6 +154,9 @@ class Config(Generic[OpsetSettingsMainModelType]):
         self.config_model = config_model
 
         logger.info(f"Initializing config for {self.app_name}")
+
+        global _opset_config
+        _opset_config = init_opset_config(self.config_path)
 
         raw_model: OpsetSettingsMainModelType = config_model.model_construct(_opset=self)
 
@@ -390,20 +393,19 @@ class Config(Generic[OpsetSettingsMainModelType]):
                 warnings.warn(f"Environment variable [{env_key}] does not match any possible setting, ignoring.")
 
 
-def get_opset_config() -> dict[str, Any] | None:
+def init_opset_config(config_path: str) -> dict[str, Any]:
     """Search for opset config and load it if it exists.
 
     Returns:
-        Opset Config or None
+        Opset Config or empty dict if no config found.
     """
-    current_dir = os.path.dirname(__file__)
-    config_path = _search_for_config_file(current_dir)
+    config_filepath = _search_for_config_file(config_path)
 
-    if config_path:
-        with open(config_path, "r") as config_file:
+    if config_filepath:
+        with open(config_filepath, "r") as config_file:
             return yaml.load(config_file, Loader=yaml.FullLoader) or {}
 
-    return None
+    return {}
 
 
 def _search_for_config_file(dir_path: str) -> str | None:

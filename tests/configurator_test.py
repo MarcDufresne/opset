@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from opset import OpsetSettingsBaseModel
-from opset.configurator import Config, OpsetConfigAlreadyInitializedError, get_opset_config, load_logging_config
+from opset.configurator import Config, OpsetConfigAlreadyInitializedError, init_opset_config, load_logging_config
 from opset.utils import mock_config_file
 from tests.utils import MockConfig, clear_env_vars, mock_default_config
 
@@ -247,12 +247,13 @@ def test_gcp_secret_format_with_json_value(mock_retrieve_gcp_secret_value) -> No
 def test_get_opset_config(mocker: MockerFixture) -> None:
     mocker.patch(f"{TESTING_MODULE}.os.path.exists", return_true=True)
     mocker.patch("builtins.open")
+    fake_path = "/fake/path"
     mock_yaml = mocker.patch(f"{TESTING_MODULE}.yaml")
     fake_config = mocker.MagicMock()
     fake_config.configure_mock(gcp_project_mapping={"test": "test-1991"})
     mock_yaml.load = mocker.MagicMock(return_value=fake_config)
 
-    opset_config = get_opset_config()
+    opset_config = init_opset_config(fake_path)
 
     assert opset_config.gcp_project_mapping == {"test": "test-1991"}
 
