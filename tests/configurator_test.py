@@ -215,7 +215,7 @@ def test_json_format() -> None:
     with mock_config_file(mock_conf):
         Config("fake-tool", MockConfig, "project.config", setup_logging=True)
         root_logger = logging.getLogger()
-        assert isinstance(root_logger.handlers[0].formatter.processors[1], structlog.processors.JSONRenderer)
+        assert isinstance(root_logger.handlers[0].formatter.processors[2], structlog.processors.JSONRenderer)
 
 
 @pytest.fixture()

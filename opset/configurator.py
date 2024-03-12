@@ -102,6 +102,7 @@ class OpsetLoggingConfig(OpsetSettingsBaseModel):
     disable_processors: bool = False
     use_colors: bool = False
     json_format: bool = False
+    json_event_key: str = "event"
     logger_overrides: dict[str, str] = {}
 
 
@@ -464,7 +465,9 @@ def load_logging_config(
         structlog.processors.UnicodeDecoder(),
         structlog.stdlib.add_logger_name,
     ] + custom_processors
-    post_processors = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+    post_processors = [
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ]
 
     processors: Any = pre_processors + shared_processors + post_processors
 
@@ -483,7 +486,12 @@ def load_logging_config(
 
     if logging_config.json_format:
         formatter = structlog.stdlib.ProcessorFormatter(
-            processor=structlog.processors.JSONRenderer(), foreign_pre_chain=shared_processors
+            processors=[
+                structlog.processors.EventRenamer(logging_config.json_event_key),
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                structlog.processors.JSONRenderer(),
+            ],
+            foreign_pre_chain=shared_processors,
         )
     else:
         formatter = structlog.stdlib.ProcessorFormatter(
