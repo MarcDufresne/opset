@@ -103,12 +103,12 @@ You would then import your new `config` variable where needed in your app.
 
 The `Config` class takes the following arguments:
 
-| Parameter           | Description                                                                                                                                                                                                                                   | Default value | Example             |
-|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|---------------------|
-| `app_name`          | The name of the application, usually the name of the repo. Ex: `myproject-example`. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. |               | `myproject-example` |
-| `config_model`      | Your implementation of `OpsetSettingsModel` that defines your configuration.                                                                                                                                                                  |
-| `config_path`       | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo.                    |               | `tasks.config`      |
-| `setup_logging`     | Whether the logging config should be loaded immediately after the config has been loaded. Your configuration modell will need to have the logging attribute of type `OpsetLoggingConfig` for this to work.  Default to `True`.                | `True`        | `True`              |
+| Parameter       | Description                                                                                                                                                                                                                                   | Default value | Example             |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|---------------------|
+| `app_name`      | The name of the application, usually the name of the repo. Ex: `myproject-example`. This will be used for finding the prefix to the environment variables. The name of the app will be uppercased and dashes will be replaced by underscores. |               | `myproject-example` |
+| `config_model`  | Your implementation of `OpsetSettingsModel` that defines your configuration.                                                                                                                                                                  |
+| `config_path`   | A python path to where the configuration files are. Relative to the application. Ex: `tasks.config` would mean that the config files are located in the directory config of the directory tasks from the root of the repo.                    |               | `tasks.config`      |
+| `setup_logging` | Whether the logging config should be loaded immediately after the config has been loaded. Your configuration model will need to have the logging attribute of type `OpsetLoggingConfig` for this to work.  Default to `True`.                 | `True`        | `True`              |
 
 ### Making the difference between null and empty
 
@@ -188,6 +188,7 @@ logging:
   logger_overrides: # overwrite min log level of third party loggers
     googleapiclient: ERROR
   json_format: False  # Whether the logs should be formatted as json. Defaults to False.
+  json_event_key: "event"  # The key to use for the event in the json format. Defaults to "event"
 ```
 
 ### Log Processors
