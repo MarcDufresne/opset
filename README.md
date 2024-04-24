@@ -152,6 +152,27 @@ database:
   host: opset+gcp://projects/dev-3423/secrets/db_host
 ```
 
+#### Combined secrets
+
+Combining multiple secrets into one single value is also supported for values of type `dict` or `list`. 
+Note that all values must also be of the same type. The way to do this is to split each secret with a 
+semicolon, like so:
+
+```yaml
+databases: >-
+  opset+gcp://
+  projects/canada/secrets/databases;
+  projects/usa/secrets/databases;
+  projects/europe/secrets/databases
+```
+
+**NOTE**: `>-` is used to allow for removing line breaks from multiline strings in YAML. The value 
+could also be provided in a single line.
+
+This will fetch the secrets from the three different projects and combine them into a single value.
+
+#### Project Mapping
+
 It is also possible to create a file `.opset.yml` in your project to create mapping for project name.
 For instance, with the following config.
 

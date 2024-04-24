@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 from google.cloud import secretmanager
@@ -8,7 +8,9 @@ from opset.gcp_secret_handler import (
     OPSET_GCP_PREFIX,
     GcpError,
     InvalidGcpSecretStringException,
+    MixedGcpValueTypesError,
     OpsetSecretManagerClient,
+    UnsupportedGcpValueTypesError,
     retrieve_gcp_secret_value,
 )
 
@@ -42,6 +44,92 @@ def test_retrieve_gcp_secret_value(mock_access_secret_version):
         request=secretmanager.AccessSecretVersionRequest(name="projects/test-1991/secrets/reward/versions/latest")
     )
     assert gcp_secret_value == A_SECRET_VALUE
+
+
+def test_retrieve_gcp_secret_value_combined_secrets_list(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;projects/test-2024/secrets/prize"
+
+    secret_val_1 = MagicMock()
+    secret_val_1.payload.data.decode.return_value = "[1,2,3,4]"
+    secret_val_2 = MagicMock()
+    secret_val_2.payload.data.decode.return_value = "[4,5,6]"
+
+    mock_access_secret_version.side_effect = [secret_val_1, secret_val_2]
+
+    gcp_secret_value = retrieve_gcp_secret_value(valid_secret_name)
+
+    mock_access_secret_version.assert_has_calls(
+        [
+            call(
+                request=secretmanager.AccessSecretVersionRequest(
+                    name="projects/test-1991/secrets/reward/versions/latest"
+                )
+            ),
+            call(
+                request=secretmanager.AccessSecretVersionRequest(
+                    name="projects/test-2024/secrets/prize/versions/latest"
+                )
+            ),
+        ]
+    )
+    assert gcp_secret_value == "[1, 2, 3, 4, 4, 5, 6]"
+
+
+def test_retrieve_gcp_secret_value_combined_secrets_dict(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;projects/test-2024/secrets/prize"
+
+    secret_val_1 = MagicMock()
+    secret_val_1.payload.data.decode.return_value = '{"client1":{"host":"localhost"}}'
+    secret_val_2 = MagicMock()
+    secret_val_2.payload.data.decode.return_value = '{"client2":{"host":"not-localhost"}}'
+
+    mock_access_secret_version.side_effect = [secret_val_1, secret_val_2]
+
+    gcp_secret_value = retrieve_gcp_secret_value(valid_secret_name)
+
+    mock_access_secret_version.assert_has_calls(
+        [
+            call(
+                request=secretmanager.AccessSecretVersionRequest(
+                    name="projects/test-1991/secrets/reward/versions/latest"
+                )
+            ),
+            call(
+                request=secretmanager.AccessSecretVersionRequest(
+                    name="projects/test-2024/secrets/prize/versions/latest"
+                )
+            ),
+        ]
+    )
+    assert gcp_secret_value == '{"client1": {"host": "localhost"}, "client2": {"host": "not-localhost"}}'
+
+
+def test_retrieve_gcp_secret_value_combined_secrets_mixed_types(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;projects/test-2024/secrets/prize"
+
+    secret_val_1 = MagicMock()
+    secret_val_1.payload.data.decode.return_value = '{"client1":{"host":"localhost"}}'
+    secret_val_2 = MagicMock()
+    secret_val_2.payload.data.decode.return_value = "[1,2,3]"
+
+    mock_access_secret_version.side_effect = [secret_val_1, secret_val_2]
+
+    with pytest.raises(MixedGcpValueTypesError):
+        retrieve_gcp_secret_value(valid_secret_name)
+
+
+def test_retrieve_gcp_secret_value_combined_secrets_unsupported_types(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;projects/test-2024/secrets/prize"
+
+    secret_val_1 = MagicMock()
+    secret_val_1.payload.data.decode.return_value = "a string"
+    secret_val_2 = MagicMock()
+    secret_val_2.payload.data.decode.return_value = "another string"
+
+    mock_access_secret_version.side_effect = [secret_val_1, secret_val_2]
+
+    with pytest.raises(UnsupportedGcpValueTypesError):
+        retrieve_gcp_secret_value(valid_secret_name)
 
 
 def test_retrieve_gcp_secret_value_with_specified_version(mock_access_secret_version):
