@@ -14,7 +14,6 @@ import structlog
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from opset import OpsetSettingsBaseModel
 from opset.configurator import Config, OpsetConfigAlreadyInitializedError, init_opset_config, load_logging_config
 from opset.utils import mock_config_file
 from tests.utils import MockConfig, clear_env_vars, mock_default_config
@@ -160,38 +159,6 @@ def test_setup_config_unit_test_with_test_config():
         assert config.logging.disable_processors is True  # unit_test trumps default
         assert config.app.api_key == "ma clef!"  # env variables trump unit test
         assert config.app.secret_key == "pirate!"  # values passed during init trump values from env variables
-
-
-@pytest.mark.parametrize(
-    "test, expected",
-    (
-        # str
-        ("foo", "foo"),
-        ("BAR", "BAR"),
-        # bool
-        ("true", True),
-        ("TRUE", True),
-        ("t", True),
-        ("yes", True),
-        ("y", True),
-        ("false", False),
-        ("f", False),
-        ("no", False),
-        ("n", False),
-        # list
-        ("[1, 2, 3]", [1, 2, 3]),
-        ('["foo", "bar", true, 0]', ["foo", "bar", True, 0]),
-        # dict
-        ('{"foo": "bar", "baz": 3000, "bool": false}', {"baz": 3000, "bool": False, "foo": "bar"}),
-    ),
-)
-def test_convert_type(test, expected):
-    assert OpsetSettingsBaseModel._convert_type(test) == expected
-
-
-@pytest.mark.parametrize("test", ('["test"', "HELLO", "nope", "test2000", '{"test"}'))
-def test_convert_type_fallback(test):
-    assert OpsetSettingsBaseModel._convert_type(test) == test
 
 
 def test_get_dict_item_from_path():

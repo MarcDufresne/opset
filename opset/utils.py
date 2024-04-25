@@ -1,14 +1,30 @@
 # __init__.py
 # Emilio Assuncao, 2019-01-24
 # Copyright (c) Element AI Inc. All rights not expressly granted hereunder are reserved.
-
+import json
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile, _TemporaryFileWrapper  # noqa
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Dict, Generator, Optional, cast
 from unittest.mock import patch
 
 import pkg_resources
 import yaml
+
+
+def convert_type(value: str) -> str | bool | dict | list:
+    if value.lower() in ["y", "yes", "t", "true"]:
+        return True
+
+    if value.lower() in ["n", "no", "f", "false"]:
+        return False
+
+    if isinstance(value, str) and (value.startswith("{") or value.startswith("[")):
+        try:
+            return cast(dict | list, json.loads(value))
+        except json.JSONDecodeError:
+            pass
+
+    return value
 
 
 @contextmanager

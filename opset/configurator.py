@@ -1,5 +1,4 @@
 import inspect
-import json
 import logging
 import operator
 import os
@@ -20,6 +19,7 @@ from pydantic import BaseModel, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
+from opset import utils
 from opset.gcp_secret_handler import (
     OPSET_GCP_PREFIX,
     MissingGcpSecretManagerLibrary,
@@ -48,7 +48,7 @@ class OpsetSettingsBaseModel(BaseModel):
                     if v.startswith(OPSET_GCP_PREFIX):
                         unprocessed_gcp_secret_keys.append(k)
                     else:
-                        values[k] = cls._convert_type(v)
+                        values[k] = utils.convert_type(v)
 
             else:
                 field_type = typing.get_origin(field_info.annotation) or field_info.annotation
@@ -62,25 +62,9 @@ class OpsetSettingsBaseModel(BaseModel):
             raise MissingGcpSecretManagerLibrary()
 
         for k in unprocessed_gcp_secret_keys:
-            values[k] = cls._convert_type(retrieve_gcp_secret_value(values[k], _opset_config))
+            values[k] = utils.convert_type(retrieve_gcp_secret_value(values[k], _opset_config))
 
         return values
-
-    @staticmethod
-    def _convert_type(value: str) -> str | bool | dict | list:
-        if value.lower() in ["y", "yes", "t", "true"]:
-            return True
-
-        if value.lower() in ["n", "no", "f", "false"]:
-            return False
-
-        if isinstance(value, str) and (value.startswith("{") or value.startswith("[")):
-            try:
-                return typing.cast(dict | list, json.loads(value))
-            except json.JSONDecodeError:
-                pass
-
-        return value
 
 
 class OpsetSettingsMainModel(OpsetSettingsBaseModel):

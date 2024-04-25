@@ -1,6 +1,9 @@
+import json
 import logging
 import re
 from typing import Any, cast
+
+from opset import utils
 
 try:
     from google.cloud import secretmanager
@@ -31,6 +34,20 @@ class MissingGcpSecretManagerLibrary(Exception):
         super().__init__(
             f"Extra [gcp] not installed. However values starting with {OPSET_GCP_PREFIX} are present in the config."
         )
+
+
+class MixedGcpValueTypesError(Exception):
+    """Thrown when the values in the secrets are not of the same type"""
+
+    def __init__(self) -> None:
+        super().__init__("All secret values must be of the same type to be combined.")
+
+
+class UnsupportedGcpValueTypesError(Exception):
+    """Thrown when the values in the secrets are not of the same type"""
+
+    def __init__(self) -> None:
+        super().__init__("Only values of type 'list' or 'dict' can be combined.")
 
 
 class GcpError(Exception):
@@ -65,54 +82,112 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
     Returns:
         Value from Google cloud secret manager
     """
+    # Cleanup the string a bit to support multiline strings in YAML (e.g. '>-')
+    secret_string = secret_string.strip().replace(" ", "")
+
     _validate_secret_string(secret_string)
     logger.debug(f"Fetching secret from gcp using {secret_string}")
-    parsed_secret_name = _parse_unprocessed_gcp_secret(secret_string)
-    versioned_secret_name = _add_version_if_needed(parsed_secret_name)
-    fully_processed_secret_name = _apply_project_mapping(versioned_secret_name, config)
+    parsed_secret_names = _parse_unprocessed_gcp_secrets(secret_string)
+    versioned_secret_names = _add_version_if_needed(parsed_secret_names)
+    fully_processed_secret_names = _apply_project_mapping(versioned_secret_names, config)
 
     client: secretmanager.SecretManagerServiceClient = OpsetSecretManagerClient.get_or_create()
 
+    gcp_secret_values = []
     try:
-        gcp_secret = client.access_secret_version(
-            request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
-        )
-
-        return gcp_secret.payload.data.decode("UTF-8")
+        for fully_processed_secret_name in fully_processed_secret_names:
+            gcp_secret = client.access_secret_version(
+                request=secretmanager.AccessSecretVersionRequest(name=fully_processed_secret_name)
+            )
+            gcp_secret_values.append(gcp_secret.payload.data.decode("UTF-8"))
     except Exception as e:
         raise GcpError(secret_string) from e
 
+    return _combine_secret_values(gcp_secret_values)
 
-def _apply_project_mapping(secret_name: str, config: dict[str, Any] | None = None) -> str:
-    if config and config.get("gcp_project_mapping"):
+
+def _apply_project_mapping(secret_names: list[str], config: dict[str, Any] | None = None) -> list[str]:
+    if not config or not config.get("gcp_project_mapping"):
+        return secret_names
+
+    mapping = cast(dict, config.get("gcp_project_mapping"))
+
+    fixed_secret_names = []
+    for secret_name in secret_names:
         tokens = secret_name.split("/")
 
-        mapped_project = cast(dict, config.get("gcp_project_mapping")).get(tokens[1])
+        mapped_project = mapping.get(tokens[1])
         if mapped_project:
             tokens[1] = mapped_project
-            return "/".join(tokens)
+            fixed_secret_names.append("/".join(tokens))
+        else:
+            fixed_secret_names.append(secret_name)
 
-    return secret_name
+    return fixed_secret_names
 
 
-def _parse_unprocessed_gcp_secret(secret_string: str) -> str:
+def _parse_unprocessed_gcp_secrets(secret_string: str) -> list[str]:
     try:
         path = secret_string.split("//")[1]
-        return path
+        return path.split(";")
     except IndexError:
         raise InvalidGcpSecretStringException(secret_string)
 
 
 def _validate_secret_string(secret_string: str) -> None:
-    match = re.match(r"^opset\+gcp://projects/.+?/secrets/[^/]+?(?P<version>/versions/[^/]+?)?$", secret_string)
+    match = re.match(r"^opset\+gcp://(projects/[^/]+?/secrets/[^/]+?(?:/versions/[^/]+?)?;?)+$", secret_string)
 
     if not match:
         raise InvalidGcpSecretStringException(secret_string)
 
 
-def _add_version_if_needed(secret_name: str) -> str:
-    match = re.match(r"^projects/.+?/secrets/[^/]+?(?P<version>/versions/[^/]+?)?$", secret_name)
-    if match and not match.groupdict().get("version"):
-        return f"{secret_name}/versions/latest"
+def _add_version_if_needed(secret_names: list[str]) -> list[str]:
+    versioned_secret_names = []
+    for secret_name in secret_names:
+        match = re.match(r"^projects/[^/]+?/secrets/[^/]+?(?P<version>/versions/[^/]+?)?$", secret_name)
+        if match and not match.groupdict().get("version"):
+            versioned_secret_names.append(f"{secret_name}/versions/latest")
+        else:
+            versioned_secret_names.append(secret_name)
 
-    return secret_name
+    return versioned_secret_names
+
+
+def _combine_secret_values(secret_values: list[str]) -> str:
+    """
+    Combine secret values into a single value
+
+    Notes:
+        - If there is only one secret value, return it as is
+        - If all secret values are of the same type and are supported types (list or dict), combine
+          them into a single merged value
+
+    Args:
+        secret_values: list of raw secret values
+
+    Raises:
+        UnsupportedGcpValueTypesError: If the values in the secrets are not support (not list or dict)
+        MixedGcpValueTypesError: If the values in the secrets are of different types
+
+    Returns:
+        Combined secret value, if all secrets are of the same type and are supported types (list or dict)
+    """
+    if len(secret_values) == 1:
+        return secret_values[0]
+
+    converted_values = [utils.convert_type(value) for value in secret_values]
+    combined_vals: list[Any] | dict[str, Any]
+
+    if all(isinstance(value, type(converted_values[0])) for value in converted_values):
+        if isinstance(converted_values[0], dict):
+            dict_vals = cast(list[dict[str, Any]], converted_values)
+            combined_vals = {key: value for d in dict_vals for key, value in d.items()}
+        elif isinstance(converted_values[0], list):
+            list_vals = cast(list[Any], converted_values)
+            combined_vals = [value for v in list_vals for value in v]
+        else:
+            raise UnsupportedGcpValueTypesError()
+    else:
+        raise MixedGcpValueTypesError()
+
+    return json.dumps(combined_vals)
