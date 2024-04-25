@@ -157,6 +157,31 @@ def test_retrieve_gcp_secret_value_with_mapping(mock_access_secret_version):
     assert gcp_secret_value == A_SECRET_VALUE
 
 
+def test_retrieve_gcp_secret_value_with_mapping_many_secrets(mock_access_secret_version):
+    valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test/secrets/reward/versions/2;projects/test-2024/secrets/prize"
+    fake_config = {"gcp_project_mapping": {"test": "test-1991"}}
+
+    secret_val_1 = MagicMock()
+    secret_val_1.payload.data.decode.return_value = "[1]"
+    secret_val_2 = MagicMock()
+    secret_val_2.payload.data.decode.return_value = "[2]"
+
+    mock_access_secret_version.side_effect = [secret_val_1, secret_val_2]
+
+    retrieve_gcp_secret_value(valid_secret_name, config=fake_config)
+
+    mock_access_secret_version.assert_has_calls(
+        [
+            call(request=secretmanager.AccessSecretVersionRequest(name="projects/test-1991/secrets/reward/versions/2")),
+            call(
+                request=secretmanager.AccessSecretVersionRequest(
+                    name="projects/test-2024/secrets/prize/versions/latest"
+                )
+            ),
+        ]
+    )
+
+
 def test_retrieve_gcp_secret_value_raise(mock_access_secret_version):
     valid_secret_name = f"{OPSET_GCP_PREFIX}projects/test/secrets/reward/versions/2"
     fake_config = {"gcp_project_mapping": {"test": "test-1991"}}
