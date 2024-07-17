@@ -1,4 +1,0 @@
-[flake8]
-max-line-length = 120
-ignore = D1,D401,D413,W503,E203
-docstring-convention = google

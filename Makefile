@@ -7,15 +7,14 @@ install:
 	poetry install -E gcp
 
 format:
-	poetry run ruff --fix .
-	poetry run black .
+	poetry run ruff check --fix .
+	poetry run ruff format .
 
 MYPY_TARGETS = opset/
-
 lint:
-	poetry run ruff .
+	poetry run ruff check .
 	poetry run mypy $(MYPY_TARGETS)
-	poetry run black --check .
+	poetry run ruff format --check .
 
 tests:
 	poetry run pytest --cov-report term-missing --cov opset tests
