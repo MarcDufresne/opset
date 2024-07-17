@@ -135,8 +135,8 @@ def test_load_logging_config_with_custom_handler():
         opset_config = Config("fake-tool", MockConfig, "project.config", setup_logging=False)
         logger = load_logging_config(opset_config.config.logging, custom_handlers=[CustomHandler()])
         assert len(logger.handlers) == 2
-        assert type(logger.handlers[0]) == logging.StreamHandler
-        assert type(logger.handlers[1]) == CustomHandler
+        assert type(logger.handlers[0]) is logging.StreamHandler
+        assert type(logger.handlers[1]) is CustomHandler
 
 
 @clear_env_vars
