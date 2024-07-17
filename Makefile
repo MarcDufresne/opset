@@ -4,7 +4,7 @@ default:
 .PHONY: install format lint tests
 
 install:
-	poetry install -E gcp
+	poetry install --sync -E gcp
 
 format:
 	poetry run ruff check --fix .
