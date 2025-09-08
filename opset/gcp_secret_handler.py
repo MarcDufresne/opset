@@ -245,7 +245,7 @@ def _get_gcp_project_id() -> str | None:
     Notes:
         The project name is taken from the metadata server if available, then from the
         environment variable 'GOOGLE_CLOUD_PROJECT', then `GCP_PROJECT_ID`,
-        otherwise defaults to 'default-project'
+        otherwise returns None.
 
     Returns:
         Project ID if found, otherwise None
