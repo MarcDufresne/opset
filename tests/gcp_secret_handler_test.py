@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
+from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import secretmanager
 from pytest_mock import MockerFixture
 
@@ -11,6 +12,9 @@ from opset.gcp_secret_handler import (
     MixedGcpValueTypesError,
     OpsetSecretManagerClient,
     UnsupportedGcpValueTypesError,
+    _add_project_if_needed,
+    _get_gcp_project_id,
+    _validate_secret_string,
     retrieve_gcp_secret_value,
 )
 
@@ -201,7 +205,6 @@ def test_retrieve_gcp_secret_value_raise(mock_access_secret_version):
         f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward/fake/param",
         f"{OPSET_GCP_PREFIX}test-1991/secrets/reward",
         f"{OPSET_GCP_PREFIX}",
-        f"{OPSET_GCP_PREFIX}reward",
         "bad+prefix://projects/test-1991/secrets/reward",
     ],
 )
@@ -222,3 +225,84 @@ def test_opset_secret_manager_client(mocker: MockerFixture):
 
     assert mock_client.call_count == 1
     assert instance == mock_client.return_value
+
+
+@pytest.mark.parametrize(
+    ("secret_string", "expected_result"),
+    [
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward/versions/2", None),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward", None),
+        (f"{OPSET_GCP_PREFIX}reward/versions/3", None),
+        (f"{OPSET_GCP_PREFIX}reward", None),
+        (
+            f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward/versions/2"
+            ";projects/test-2024/secrets/prize/versions/5",
+            None,
+        ),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;projects/test-2024/secrets/prize", None),
+        (f"{OPSET_GCP_PREFIX}reward/versions/3;prize/versions/7", None),
+        (f"{OPSET_GCP_PREFIX}reward;prize", None),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward;prize/versions/7", None),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward/versions/2;prize", None),
+        (f"{OPSET_GCP_PREFIX}", InvalidGcpSecretStringException),
+        ("bad+prefix://projects/test-1991/secrets/reward", InvalidGcpSecretStringException),
+        (f"{OPSET_GCP_PREFIX}projects//secrets/reward", InvalidGcpSecretStringException),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/reward", InvalidGcpSecretStringException),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/", InvalidGcpSecretStringException),
+        (f"{OPSET_GCP_PREFIX}projects/test-1991/secrets/reward/fake/param", InvalidGcpSecretStringException),
+        (f"{OPSET_GCP_PREFIX}test-1991/secrets/reward", InvalidGcpSecretStringException),
+    ],
+)
+def test_validate_secret_string(secret_string, expected_result):
+    if expected_result:
+        with pytest.raises(expected_result):
+            _validate_secret_string(secret_string)
+    else:
+        # Should not raise any exception
+        _validate_secret_string(secret_string)
+
+
+@pytest.mark.parametrize(
+    ("secret_string", "expected_secret"),
+    [
+        ("projects/test-1991/secrets/reward/versions/2", "projects/test-1991/secrets/reward/versions/2"),
+        ("projects/test-1991/secrets/reward", "projects/test-1991/secrets/reward"),
+        ("reward/versions/3", "projects/test-1991/secrets/reward/versions/3"),
+        ("reward", "projects/test-1991/secrets/reward"),
+    ],
+)
+def test_add_project_if_needed(secret_string, expected_secret):
+    with patch("opset.gcp_secret_handler._get_gcp_project_id", return_value="test-1991"):
+        assert _add_project_if_needed([secret_string]) == [expected_secret]
+
+
+class TestGetGCPProjectID:
+    def test_with_google_auth_default(self):
+        with patch("opset.gcp_secret_handler.google.auth.default", return_value=(MagicMock(), "test-1991")):
+            project_id = _get_gcp_project_id()
+
+        assert project_id == "test-1991"
+
+    def test_with_google_cloud_project_env_var(self):
+        with (
+            patch("opset.gcp_secret_handler.google.auth.default", side_effect=DefaultCredentialsError),
+            patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "test-1991"}),
+        ):
+            project_id = _get_gcp_project_id()
+
+        assert project_id == "test-1991"
+
+    def test_with_gcp_project_id_env_var(self):
+        with (
+            patch("opset.gcp_secret_handler.google.auth.default", side_effect=DefaultCredentialsError),
+            patch.dict("os.environ", {"GCP_PROJECT_ID": "test-1991"}),
+        ):
+            project_id = _get_gcp_project_id()
+
+        assert project_id == "test-1991"
+
+    def test_with_no_gcp_credentials_no_env_vars(self):
+        with patch("opset.gcp_secret_handler.google.auth.default", side_effect=DefaultCredentialsError):
+            project_id = _get_gcp_project_id()
+
+        assert project_id is None

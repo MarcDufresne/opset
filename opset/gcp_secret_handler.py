@@ -1,7 +1,11 @@
 import json
 import logging
+import os
 import re
 from typing import Any, cast
+
+import google.auth
+from google.auth.exceptions import DefaultCredentialsError
 
 from opset import utils
 
@@ -88,7 +92,8 @@ def retrieve_gcp_secret_value(secret_string: str, config: dict[str, Any] | None 
     _validate_secret_string(secret_string)
     logger.debug(f"Fetching secret from gcp using {secret_string}")
     parsed_secret_names = _parse_unprocessed_gcp_secrets(secret_string)
-    versioned_secret_names = _add_version_if_needed(parsed_secret_names)
+    project_prefixed_secret_names = _add_project_if_needed(parsed_secret_names)
+    versioned_secret_names = _add_version_if_needed(project_prefixed_secret_names)
     fully_processed_secret_names = _apply_project_mapping(versioned_secret_names, config)
 
     client: secretmanager.SecretManagerServiceClient = OpsetSecretManagerClient.get_or_create()
@@ -135,10 +140,50 @@ def _parse_unprocessed_gcp_secrets(secret_string: str) -> list[str]:
 
 
 def _validate_secret_string(secret_string: str) -> None:
-    match = re.match(r"^opset\+gcp://(projects/[^/]+?/secrets/[^/]+?(?:/versions/[^/]+?)?;?)+$", secret_string)
+    """
+    Validate the gcp secret string format
+
+    Notes:
+        - The string must start with `opset+gcp://`
+        - The string must contain one or more secret definitions separated by semicolon
+        - Each secret definition must be in one of the following formats:
+            1. projects/<project_name>/secrets/<secret_name>/versions/<version>
+            2. projects/<project_name>/secrets/<secret_name>
+            3. <secret_name>/versions/<version>
+            4. <secret_name>
+    """
+    pattern = r"^opset\+gcp://((projects/[^/]+/secrets/[^/]+(?:/versions/[^/]+)?|[^/]+(?:/versions/[^/]+)?);?)+$"
+    match = re.match(pattern, secret_string)
 
     if not match:
         raise InvalidGcpSecretStringException(secret_string)
+
+
+def _add_project_if_needed(secret_names: list[str]) -> list[str]:
+    """
+    Add project prefix to secret names if not already present
+
+    Notes:
+        - '<secret_name>/versions/<version>' and '<secret_name>' formats will be prefixed
+            with 'projects/{project}/secrets/'
+        - 'projects/<project_name>/secrets/<secret_name>/versions/<version>' and
+            'projects/<project_name>/secrets/<secret_name>' formats will be left unchanged
+
+    Args:
+        secret_names: List of secret names with or without project prefix
+
+    Returns:
+        Normalized list of secret names with project prefixes
+    """
+    project = _get_gcp_project_id() or "default-project"
+    project_prefixed_secret_names = []
+    for secret_name in secret_names:
+        if not secret_name.startswith("projects/"):
+            project_prefixed_secret_names.append(f"projects/{project}/secrets/{secret_name}")
+        else:
+            project_prefixed_secret_names.append(secret_name)
+
+    return project_prefixed_secret_names
 
 
 def _add_version_if_needed(secret_names: list[str]) -> list[str]:
@@ -191,3 +236,25 @@ def _combine_secret_values(secret_values: list[str]) -> str:
         raise MixedGcpValueTypesError()
 
     return json.dumps(combined_vals)
+
+
+def _get_gcp_project_id() -> str | None:
+    """
+    Get the GCP project ID from the metadata server or environment variables
+
+    Notes:
+        The project name is taken from the metadata server if available, then from the
+        environment variable 'GOOGLE_CLOUD_PROJECT', then `GCP_PROJECT_ID`,
+        otherwise defaults to 'default-project'
+
+    Returns:
+        Project ID if found, otherwise None
+    """
+    try:
+        _, project_id = google.auth.default()  # type: ignore[no-untyped-call] # https://github.com/googleapis/google-auth-library-python/issues/1543
+        if project_id:
+            return cast(str, project_id)
+    except DefaultCredentialsError:
+        pass
+
+    return os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID")
