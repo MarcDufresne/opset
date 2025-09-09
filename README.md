@@ -142,15 +142,25 @@ account.
 
 The config value should respect on of these formats
 
-- `opset+gcp://projects/<my_project>/secrets/<my_secret>`
 - `opset+gcp://projects/<my_project>/secrets/<my_secret>/versions/<my_version>`
+- `opset+gcp://projects/<my_project>/secrets/<my_secret>`
+- `opset+gcp://<my_secret>/versions/<my_version>`
+- `opset+gcp://<my_secret>`
 
 Example
 
 ```yaml
 database:
   host: opset+gcp://projects/dev-3423/secrets/db_host
+  password: opset+gcp://db_password
 ```
+
+#### Determining the project automatically
+
+If the project is not specified in the secret path, Opset will try to determine the project automatically.
+
+It will first try to use `google.auth.default()` to determine the project from the context. If that fails it will
+try to use the `GOOGLE_CLOUD_PROJECT` environment variable. If that also fails it will also try `GCP_PROJECT_ID`.
 
 #### Combined secrets
 
@@ -333,7 +343,7 @@ The `mock_config` contextmanager on the opset config is used to temporarily over
 ## Contributing and getting set up for local development
 
 To set yourself up for development on Opset, make sure you are using
-[poetry](https://poetry.eustace.io/docs/) and simply run the following commands from the root directory:
+[uv](https://docs.astral.sh/uv) and simply run the following commands from the root directory:
 
 ```bash
 make install
