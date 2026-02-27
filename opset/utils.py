@@ -73,8 +73,5 @@ def mock_config_file(
         mock_traversable.__truediv__ = lambda self, resource_name: configs.get(resource_name, "")
         return mock_traversable
 
-    try:
-        with patch("importlib.resources.files", side_effect=mock_files):
-            yield
-    finally:
-        pass
+    with patch("importlib.resources.files", side_effect=mock_files):
+        yield
