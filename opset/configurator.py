@@ -1,3 +1,4 @@
+import importlib.resources
 import inspect
 import logging
 import operator
@@ -11,7 +12,6 @@ from copy import deepcopy
 from functools import reduce
 from typing import Any, Generic, TypeVar
 
-import importlib.resources
 import structlog
 import yaml
 from munch import munchify
