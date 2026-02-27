@@ -33,18 +33,16 @@ def mock_config_file(
 ) -> Generator[None, None, None]:
     """Spoof config files by mocking importlib.resources.files().
 
-    To be used as a context manager with the with-as syntax. This function is intended to facilitate unit testing.
-
-    Creates temporary files and writes default values to them, returning said temporary files.
+    Context manager intended to facilitate unit testing. Creates temporary YAML files from the provided
+    local_values and/or unit_test_values, then patches importlib.resources.files so that the configurator
+    reads from these temporary files instead of real ones.
 
     Args:
-        local_values: Dict object that contains the key-value pairs for all the variables to be put into the fake
-            local.yml file.
-        unit_test_values: Dict object that contains the key-value pairs for all the variables to be put into the fake
-            unit_test.yml file.
+        local_values: Dict of key-value pairs to write into a fake local.yml file.
+        unit_test_values: Dict of key-value pairs to write into a fake unit_test.yml file.
 
-    Returns:
-        A context manager that patches importlib.resources.files to return mock file paths.
+    Yields:
+        None. The temporary files and mock are active for the duration of the with-block.
     """
     from unittest.mock import MagicMock
 
