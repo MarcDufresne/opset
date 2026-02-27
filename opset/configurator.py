@@ -1,3 +1,4 @@
+import importlib.resources
 import inspect
 import logging
 import operator
@@ -11,7 +12,6 @@ from copy import deepcopy
 from functools import reduce
 from typing import Any, Generic, TypeVar
 
-import pkg_resources
 import structlog
 import yaml
 from munch import munchify
@@ -153,7 +153,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
 
             self._environment_override(
                 declared_config,
-                raw_model.model_fields,
+                self.config_model.model_fields,
             )
 
             if config_overrides:
@@ -206,7 +206,7 @@ class Config(Generic[OpsetSettingsMainModelType]):
     def _update_pydantic_model_in_place(
         original_model: OpsetSettingsMainModelType, updated_model: OpsetSettingsMainModelType
     ) -> None:
-        for f in updated_model.model_fields.keys():
+        for f in type(updated_model).model_fields.keys():
             setattr(original_model, f, getattr(updated_model, f))
 
     @contextmanager
@@ -233,12 +233,12 @@ class Config(Generic[OpsetSettingsMainModelType]):
         self.__set_global_config()
 
     def _get_config_file_path(self, config_name: str) -> str:
-        tentative_path = pkg_resources.resource_filename(self.config_path, config_name)
+        tentative_path = str(importlib.resources.files(self.config_path) / config_name)
 
         if not os.path.exists(tentative_path):
             try:
                 split_path = self.config_path.rsplit(".", maxsplit=1)
-                tentative_path = pkg_resources.resource_filename(split_path[0], f"{split_path[1]}/{config_name}")
+                tentative_path = str(importlib.resources.files(split_path[0]) / f"{split_path[1]}/{config_name}")
             except Exception:
                 pass
 
