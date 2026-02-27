@@ -7,7 +7,6 @@ from tempfile import NamedTemporaryFile, _TemporaryFileWrapper  # noqa
 from typing import Any, Dict, Generator, Optional, cast
 from unittest.mock import patch
 
-import pkg_resources
 import yaml
 
 
@@ -32,24 +31,22 @@ def mock_config_file(
     local_values: Optional[Dict] = None,
     unit_test_values: Optional[Dict] = None,
 ) -> Generator[None, None, None]:
-    """Spoof a config file by mocking out the return value of pkg_resources.resource_filename().
+    """Spoof config files by mocking importlib.resources.files().
 
     To be used as a context manager with the with-as syntax. This function is intended to facilitate unit testing.
 
-    Creates a temporary file and writes some default values to it, and returns said temporary file.
+    Creates temporary files and writes default values to them, returning said temporary files.
 
     Args:
-        default_values: Dict object that contains the key-value pairs for all the variables to be put into the fake
-            default.yml file.
         local_values: Dict object that contains the key-value pairs for all the variables to be put into the fake
             local.yml file.
         unit_test_values: Dict object that contains the key-value pairs for all the variables to be put into the fake
             unit_test.yml file.
 
     Returns:
-        An instance of a TemporaryFile wrapper to be used for replacing the return value of resource_filename. It is
-        not necessary to capture this value with _as_ since the config will already be spoofed.
+        A context manager that patches importlib.resources.files to return mock file paths.
     """
+    from unittest.mock import MagicMock
 
     def save_as_tmp(_config: Dict[str, Dict[str, Any]], temp_file: _TemporaryFileWrapper) -> str:
         if not _config:
@@ -68,13 +65,16 @@ def mock_config_file(
         unit_test_temp_file = NamedTemporaryFile()
         configs["unit_test.yml"] = save_as_tmp(unit_test_values, unit_test_temp_file)
 
-    def mock_resource_filename(_: Any, resource: str) -> Any:
-        return configs.get(resource, "")
+    def mock_files(package_name: str) -> Any:
+        """Create a mock Traversable that supports the / operator."""
+        mock_traversable = MagicMock()
 
-    _real_resource_filename = pkg_resources.resource_filename
+        # When divided via /, return the path string from configs or empty string
+        mock_traversable.__truediv__ = lambda self, resource_name: configs.get(resource_name, "")
+        return mock_traversable
 
     try:
-        with patch("pkg_resources.resource_filename", mock_resource_filename):
+        with patch("importlib.resources.files", side_effect=mock_files):
             yield
     finally:
-        pkg_resources.resource_filename = _real_resource_filename
+        pass
